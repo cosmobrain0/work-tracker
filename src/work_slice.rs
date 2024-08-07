@@ -17,25 +17,24 @@ pub struct IncompleteWorkSlice {
     id: WorkSliceId,
 }
 impl IncompleteWorkSlice {
-    pub fn new(start: Instant, payment: Payment, id: WorkSliceId) -> Self {
-        Self { start, payment, id }
+    pub fn new(start: Instant, payment: Payment, id: WorkSliceId) -> Option<Self> {
+        if start <= Instant::now() {
+            Some(Self { start, payment, id })
+        } else {
+            None
+        }
     }
 
     pub fn complete(self, end: Instant) -> Option<CompleteWorkSlice> {
         CompleteWorkSlice::new(self, end)
     }
 
-    pub fn complete_now(self) -> Option<CompleteWorkSlice> {
-        CompleteWorkSlice::new(self, Instant::now())
+    pub fn complete_now(self) -> CompleteWorkSlice {
+        CompleteWorkSlice::new(self, Instant::now()).unwrap()
     }
 
     pub fn payment_so_far(&self) -> Option<MoneyExact> {
-        let end = Instant::now();
-        if end > self.start {
-            Some(self.payment.calculate((end - self.start)))
-        } else {
-            None
-        }
+        Some(self.payment.calculate(Instant::now() - self.start))
     }
 }
 impl PartialEq for IncompleteWorkSlice {

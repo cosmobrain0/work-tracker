@@ -87,27 +87,22 @@ mod tests {
     #[test]
     fn incomplete_work_slice_eq() {
         let now = Instant::now();
-        let after = now + Duration::from_secs(5 * 60 * 60);
         let before = now - Duration::from_secs(5 * 60 * 60);
         let tests = [
             IncompleteWorkSlice::new(
                 before,
                 Payment::Hourly(Money::new(1000)),
                 WorkSliceId::new(0),
-            ),
-            IncompleteWorkSlice::new(now, Payment::Hourly(Money::new(2000)), WorkSliceId::new(1)),
-            IncompleteWorkSlice::new(
-                after,
-                Payment::Fixed(Money::new(20000)),
-                WorkSliceId::new(2),
-            ),
+            )
+            .unwrap(),
+            IncompleteWorkSlice::new(now, Payment::Hourly(Money::new(2000)), WorkSliceId::new(1))
+                .unwrap(),
         ];
         for test in &tests {
             assert_eq!(test, test);
         }
         assert_ne!(tests[0], tests[1]);
-        assert_ne!(tests[1], tests[2]);
-        assert_ne!(tests[2], tests[0]);
+        assert_ne!(tests[1], tests[0]);
     }
 
     fn almost_equal(a: f64, b: f64) -> bool {
@@ -119,7 +114,7 @@ mod tests {
         let now = Instant::now();
         let after = now + Duration::from_secs(5 * 60 * 60);
         let before = now - Duration::from_secs(5 * 60 * 60);
-        let tests = [
+        let mut tests = vec![
             (
                 IncompleteWorkSlice::new(
                     before,
@@ -145,27 +140,28 @@ mod tests {
                 None,
             ),
         ];
+        assert!(tests[0].0.is_some());
+        assert!(tests[1].0.is_some());
+        assert!(tests[2].0.is_none());
+        tests.pop();
+        let monies = tests.iter().map(|x| x.1.unwrap()).collect::<Vec<_>>();
+        let tests = [
+            (tests.pop().unwrap().0.unwrap(), monies[1]),
+            (tests.pop().unwrap().0.unwrap(), monies[0]),
+        ];
         for (test, payment) in tests {
             match (
                 test.payment_so_far().map(|x| x.as_pence()),
-                payment.map(|x| x.as_pence()),
+                payment.as_pence(),
             ) {
-                (None, None) => (),
-                (None, Some(x)) => panic!("Should have gotten {:#?}, but got None", x),
-                (Some(x), None) => panic!("Should have gotten None, but got {:#?}", x),
-                (Some(a), Some(b)) => assert!(almost_equal(a, b)),
+                (None, x) => panic!("Should have gotten {:#?}, but got None", x),
+                (Some(a), b) => assert!(almost_equal(a, b)),
             }
 
-            match (
-                test.complete_now()
-                    .map(|x| x.calculate_payment().as_pence()),
-                payment.map(|x| x.as_pence()),
-            ) {
-                (None, None) => (),
-                (None, Some(x)) => panic!("Should have gotten {:#?}, but got None", x),
-                (Some(x), None) => panic!("Should have gotten None, but got {:#?}", x),
-                (Some(a), Some(b)) => assert!(almost_equal(a, b)),
-            }
+            assert!(almost_equal(
+                test.complete_now().calculate_payment().as_pence(),
+                payment.as_pence(),
+            ));
         }
     }
 }
