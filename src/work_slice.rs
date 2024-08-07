@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use crate::payment::Payment;
+use crate::payment::{MoneyExact, Payment};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WorkSliceId(u64);
@@ -19,6 +19,14 @@ pub struct IncompleteWorkSlice {
 impl IncompleteWorkSlice {
     pub fn new(start: Instant, payment: Payment, id: WorkSliceId) -> Self {
         Self { start, payment, id }
+    }
+
+    pub fn complete(self, end: Instant) -> Option<CompleteWorkSlice> {
+        CompleteWorkSlice::new(self, end)
+    }
+
+    pub fn complete_now(self) -> Option<CompleteWorkSlice> {
+        CompleteWorkSlice::new(self, Instant::now())
     }
 }
 impl PartialEq for IncompleteWorkSlice {
@@ -51,6 +59,10 @@ impl CompleteWorkSlice {
 
     pub fn duration(&self) -> Duration {
         self.end - self.start
+    }
+
+    pub fn calculate_payment(&self) -> MoneyExact {
+        self.payment.calculate(self.duration())
     }
 }
 impl PartialEq for CompleteWorkSlice {

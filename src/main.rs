@@ -10,7 +10,7 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use crate::{
-        payment::{Money, Payment},
+        payment::{Money, MoneyExact, Payment},
         work_slice::{IncompleteWorkSlice, WorkSliceId},
     };
 
@@ -108,5 +108,54 @@ mod tests {
         assert_ne!(tests[0], tests[1]);
         assert_ne!(tests[1], tests[2]);
         assert_ne!(tests[2], tests[0]);
+    }
+
+    fn almost_equal(a: f64, b: f64) -> bool {
+        (a - b).abs() <= 0.0001
+    }
+
+    #[test]
+    fn work_slice_payment_calculation() {
+        let now = Instant::now();
+        let after = now + Duration::from_secs(5 * 60 * 60);
+        let before = now - Duration::from_secs(5 * 60 * 60);
+        let tests = [
+            (
+                IncompleteWorkSlice::new(
+                    before,
+                    Payment::Hourly(Money::new(1000)),
+                    WorkSliceId::new(0),
+                ),
+                Some(MoneyExact::new(5000.0).unwrap()),
+            ),
+            (
+                IncompleteWorkSlice::new(
+                    now,
+                    Payment::Hourly(Money::new(2000)),
+                    WorkSliceId::new(1),
+                ),
+                Some(MoneyExact::new(0.0).unwrap()),
+            ),
+            (
+                IncompleteWorkSlice::new(
+                    after,
+                    Payment::Fixed(Money::new(20000)),
+                    WorkSliceId::new(2),
+                ),
+                None,
+            ),
+        ];
+        for (test, payment) in tests {
+            match (
+                test.complete_now()
+                    .map(|x| x.calculate_payment().as_pence()),
+                payment.map(|x| x.as_pence()),
+            ) {
+                (None, None) => (),
+                (None, Some(x)) => panic!("Should have gotten {:#?}, but got None", x),
+                (Some(x), None) => panic!("Should have gotten None, but got {:#?}", x),
+                (Some(a), Some(b)) => assert!(almost_equal(a, b)),
+            }
+        }
     }
 }

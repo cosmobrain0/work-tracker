@@ -27,6 +27,13 @@ impl Display for Money {
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub struct MoneyExact(f64);
 impl MoneyExact {
+    pub fn new(money: f64) -> Option<Self> {
+        if money >= 0.0 {
+            Some(Self(money))
+        } else {
+            None
+        }
+    }
     pub fn as_pence(&self) -> f64 {
         self.0
     }
