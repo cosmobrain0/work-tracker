@@ -22,3 +22,11 @@ a work slice is:
 Payment is:
 - either hourly (a fixed rate per hour of working)
 - or whole (a fixed payment for the entire work slice)
+
+We then need a "state" and a "message-response" system:
+- the "state" stores all projects, work-slices and their payments
+- the state can be asked questions or given requests ("messages")
+- the state will respond to questions with answers
+- the state will respond to requests with success/falure
+
+and then to figure out how to store "state" permanently, ideally in a database.

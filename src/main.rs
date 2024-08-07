@@ -1,93 +1,5 @@
-mod payment {
-    use std::{fmt::Display, ops::Add, time::Duration};
-
-    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-    pub struct Money(u32);
-    impl Money {
-        pub fn new(money: u32) -> Self {
-            Self(money)
-        }
-
-        pub fn as_pence(&self) -> u32 {
-            self.0
-        }
-    }
-    impl Display for Money {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let pounds = self.0 / 100;
-            let pence = self.0 % 100;
-            let pence = if pence >= 10 {
-                pence.to_string()
-            } else {
-                format!("0{pence}")
-            };
-            write!(f, "£{pounds}.{pence}")
-        }
-    }
-
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
-    pub struct MoneyExact(f64);
-    impl MoneyExact {
-        pub fn as_pence(&self) -> f64 {
-            self.0
-        }
-    }
-
-    impl From<Money> for MoneyExact {
-        fn from(value: Money) -> Self {
-            return MoneyExact(value.0.into());
-        }
-    }
-
-    impl Add<Money> for Money {
-        type Output = Money;
-
-        fn add(self, rhs: Money) -> Self::Output {
-            return Money(self.0 + rhs.0);
-        }
-    }
-
-    impl Add<MoneyExact> for MoneyExact {
-        type Output = MoneyExact;
-
-        fn add(self, rhs: MoneyExact) -> Self::Output {
-            MoneyExact(self.0 + rhs.0)
-        }
-    }
-
-    impl Add<Money> for MoneyExact {
-        type Output = MoneyExact;
-
-        fn add(self, rhs: Money) -> Self::Output {
-            return MoneyExact(self.0 + f64::from(rhs.0));
-        }
-    }
-
-    impl Add<MoneyExact> for Money {
-        type Output = MoneyExact;
-
-        fn add(self, rhs: MoneyExact) -> Self::Output {
-            return MoneyExact(f64::from(self.0) + rhs.0);
-        }
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-    pub enum Payment {
-        Hourly(Money),
-        Fixed(Money),
-    }
-
-    impl Payment {
-        pub fn calculate(&self, time: Duration) -> MoneyExact {
-            match *self {
-                Payment::Hourly(hourly) => {
-                    MoneyExact(hourly.as_pence() as f64 * time.as_secs_f64() / (60.0 * 60.0))
-                }
-                Payment::Fixed(money) => money.into(),
-            }
-        }
-    }
-}
+mod payment;
+mod work_slice;
 
 fn main() {
     println!("Hello, world!");
@@ -95,9 +7,12 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
-    use crate::payment::{Money, Payment};
+    use crate::{
+        payment::{Money, Payment},
+        work_slice::{IncompleteWorkSlice, WorkSliceId},
+    };
 
     #[test]
     fn money_format() {
@@ -167,5 +82,31 @@ mod tests {
                 total
             );
         }
+    }
+
+    #[test]
+    fn incomplete_work_slice_eq() {
+        let now = Instant::now();
+        let after = now + Duration::from_secs(5 * 60 * 60);
+        let before = now - Duration::from_secs(5 * 60 * 60);
+        let tests = [
+            IncompleteWorkSlice::new(
+                before,
+                Payment::Hourly(Money::new(1000)),
+                WorkSliceId::new(0),
+            ),
+            IncompleteWorkSlice::new(now, Payment::Hourly(Money::new(2000)), WorkSliceId::new(1)),
+            IncompleteWorkSlice::new(
+                after,
+                Payment::Fixed(Money::new(20000)),
+                WorkSliceId::new(2),
+            ),
+        ];
+        for test in &tests {
+            assert_eq!(test, test);
+        }
+        assert_ne!(tests[0], tests[1]);
+        assert_ne!(tests[1], tests[2]);
+        assert_ne!(tests[2], tests[0]);
     }
 }
