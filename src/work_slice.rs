@@ -28,6 +28,15 @@ impl IncompleteWorkSlice {
     pub fn complete_now(self) -> Option<CompleteWorkSlice> {
         CompleteWorkSlice::new(self, Instant::now())
     }
+
+    pub fn payment_so_far(&self) -> Option<MoneyExact> {
+        let end = Instant::now();
+        if end > self.start {
+            Some(self.payment.calculate((end - self.start)))
+        } else {
+            None
+        }
+    }
 }
 impl PartialEq for IncompleteWorkSlice {
     fn eq(&self, other: &Self) -> bool {

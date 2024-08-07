@@ -147,6 +147,16 @@ mod tests {
         ];
         for (test, payment) in tests {
             match (
+                test.payment_so_far().map(|x| x.as_pence()),
+                payment.map(|x| x.as_pence()),
+            ) {
+                (None, None) => (),
+                (None, Some(x)) => panic!("Should have gotten {:#?}, but got None", x),
+                (Some(x), None) => panic!("Should have gotten None, but got {:#?}", x),
+                (Some(a), Some(b)) => assert!(almost_equal(a, b)),
+            }
+
+            match (
                 test.complete_now()
                     .map(|x| x.calculate_payment().as_pence()),
                 payment.map(|x| x.as_pence()),
