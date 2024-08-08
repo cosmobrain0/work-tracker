@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{error::Error, fmt::Display, time::Instant};
 
 use crate::{
     payment::Payment,
@@ -21,56 +21,48 @@ impl State {
         }
     }
 
-    pub fn process_message<'a>(&'a mut self, message: IncomingMessage) -> OutgoingMessage<'a> {
-        match message {
-            IncomingMessage::CreateProject { name, description } => {
-                let id = self.create_project(name, description);
-                OutgoingMessage::ProjectCreated(id)
-            }
-            IncomingMessage::StartWorkNow(id, payment) => {
-                let work_id = self.create_work_slice_id();
-                let project = self.get_project(id);
-                match project.start_work_now(payment, work_id) {
-                    Ok(()) => OutgoingMessage::WorkStarted,
-                    Err(()) => OutgoingMessage::AlreadyStartedWork,
-                }
-            }
-            IncomingMessage::EndWorkNow(id) => {
-                let project = self.get_project(id);
-                match project.complete_work_now() {
-                    Ok(()) => OutgoingMessage::WorkEnded,
-                    Err(()) => OutgoingMessage::NoCurrentWork,
-                }
-            }
-            IncomingMessage::StartWork(id, payment, start) => {
-                let work_id = self.create_work_slice_id();
-                let project = self.get_project(id);
-                let Some(work) = IncompleteWorkSlice::new(start, payment, work_id) else {
-                    return OutgoingMessage::WorkStartTimeAfterNow;
-                };
-                let Ok(()) = project.start_work(work) else {
-                    return OutgoingMessage::AlreadyStartedWork;
-                };
-                OutgoingMessage::WorkStarted
-            }
-            IncomingMessage::EndWork(id, end) => {
-                let project = self.get_project(id);
-                match project.complete_work(end) {
-                    Ok(()) => OutgoingMessage::WorkEnded,
-                    Err(CompleteWorkError::NoWorkToComplete) => OutgoingMessage::NoCurrentWork,
-                    Err(CompleteWorkError::EndTimeTooEarly) => {
-                        OutgoingMessage::WorkEndTimeBeforeStartTime
-                    }
-                }
-            }
-            IncomingMessage::GetWorkSlices(id) => {
-                let project = self.get_project(id);
-                OutgoingMessage::WorkSlices(
-                    project.complete_work_slices(),
-                    project.current_work_slice(),
-                )
-            }
-        }
+    pub fn start_work_now(
+        &mut self,
+        payment: Payment,
+        id: ProjectId,
+    ) -> Result<(), WorkAlreadyStartedError> {
+        let work_id = self.create_work_slice_id();
+        let project = self.get_project_mut(id);
+        project
+            .start_work_now(payment, work_id)
+            .map_err(|_| WorkAlreadyStartedError)
+    }
+
+    pub fn end_work_now(&mut self, id: ProjectId) -> Result<(), NoCurrentWorkError> {
+        let project = self.get_project_mut(id);
+        project.complete_work_now().map_err(|_| NoCurrentWorkError)
+    }
+
+    pub fn start_work(
+        &mut self,
+        start: Instant,
+        payment: Payment,
+        id: ProjectId,
+    ) -> Result<(), ()> {
+        let work_id = self.create_work_slice_id();
+        let project = self.get_project_mut(id);
+        let Some(work) = IncompleteWorkSlice::new(start, payment, work_id) else {
+            return Err(());
+        };
+        project.start_work(work)
+    }
+
+    pub fn end_work(&mut self, end: Instant, id: ProjectId) -> Result<(), CompleteWorkError> {
+        let project = self.get_project_mut(id);
+        project.complete_work(end)
+    }
+
+    pub fn work_slices(
+        &self,
+        id: ProjectId,
+    ) -> (Vec<&CompleteWorkSlice>, Option<&IncompleteWorkSlice>) {
+        let project = self.get_project(id);
+        (project.complete_work_slices(), project.current_work_slice())
     }
 
     fn create_work_slice_id(&mut self) -> WorkSliceId {
@@ -83,7 +75,7 @@ impl State {
         WorkSliceId::new(id)
     }
 
-    fn create_project(&mut self, name: String, description: String) -> ProjectId {
+    pub fn create_project(&mut self, name: String, description: String) -> ProjectId {
         if self.previous_project_id == u64::MAX {
             panic!("Can't generate a new project id!");
         }
@@ -96,34 +88,29 @@ impl State {
         ProjectId::new(id)
     }
 
-    fn get_project(&mut self, id: ProjectId) -> &mut Project {
+    fn get_project_mut(&mut self, id: ProjectId) -> &mut Project {
         self.projects.iter_mut().find(|x| x.id() == id).unwrap()
+    }
+
+    fn get_project(&self, id: ProjectId) -> &Project {
+        self.projects.iter().find(|x| x.id() == id).unwrap()
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum IncomingMessage {
-    CreateProject { name: String, description: String },
-    StartWorkNow(ProjectId, Payment),
-    EndWorkNow(ProjectId),
-    StartWork(ProjectId, Payment, Instant),
-    EndWork(ProjectId, Instant),
-    GetWorkSlices(ProjectId),
+#[derive(Debug, Clone, Copy)]
+pub struct WorkAlreadyStartedError;
+impl Display for WorkAlreadyStartedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#?}", self)
+    }
 }
+impl Error for WorkAlreadyStartedError {}
 
-#[must_use]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum OutgoingMessage<'a> {
-    ProjectCreated(ProjectId),
-
-    WorkStarted,
-    AlreadyStartedWork,
-    WorkStartTimeAfterNow,
-
-    WorkEnded,
-    NoCurrentWork,
-
-    WorkEndTimeBeforeStartTime,
-
-    WorkSlices(Vec<&'a CompleteWorkSlice>, Option<&'a IncompleteWorkSlice>),
+#[derive(Debug, Clone, Copy)]
+pub struct NoCurrentWorkError;
+impl Display for NoCurrentWorkError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#?}", self)
+    }
 }
+impl Error for NoCurrentWorkError {}

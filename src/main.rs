@@ -17,7 +17,7 @@ mod tests {
     use crate::{
         payment::{Money, MoneyExact, Payment},
         project::{Project, ProjectId},
-        state::{IncomingMessage, OutgoingMessage, State},
+        state::{State, WorkAlreadyStartedError},
         work_slice::{IncompleteWorkSlice, WorkSliceId},
     };
 
@@ -195,57 +195,44 @@ mod tests {
     fn state_creates_many_projects() {
         let mut state = State::new();
         for i in 0..10000 {
-            let message = state.process_message(IncomingMessage::CreateProject {
-                name: String::from("Example Project"),
-                description: String::from("Example description!"),
-            });
-            assert!(matches!(message, OutgoingMessage::ProjectCreated(_)));
+            state.create_project(
+                String::from("Example Project"),
+                String::from("Example description!"),
+            );
         }
     }
 
     #[test]
     fn state_create_single_project() {
         let mut state = State::new();
-        let OutgoingMessage::ProjectCreated(id) =
-            state.process_message(IncomingMessage::CreateProject {
-                name: String::from("Example Project"),
-                description: String::from("Example Description"),
-            })
+        let id = state.create_project(
+            String::from("Example Project"),
+            String::from("Example Description"),
+        );
+
+        let Ok(()) = state.start_work_now(Payment::Hourly(Money::new(800)), id) else {
+            panic!("Couldn't start work!");
+        };
+
+        let Err(WorkAlreadyStartedError) =
+            state.start_work_now(Payment::Hourly(Money::new(500)), id)
         else {
-            panic!("Failed to create a project!");
+            panic!("Shouldn't be able to start work!");
         };
 
-        let OutgoingMessage::WorkStarted = state.process_message(IncomingMessage::StartWorkNow(
-            id,
-            Payment::Hourly(Money::new(800)),
-        )) else {
-            panic!("Failed to start work on a project!");
-        };
-
-        let OutgoingMessage::AlreadyStartedWork = state.process_message(
-            IncomingMessage::StartWorkNow(id, Payment::Hourly(Money::new(500))),
-        ) else {
-            panic!("Should've gotten an AlreadyStartedWork when trying to start work again!");
-        };
-
-        let OutgoingMessage::WorkSlices(completed, Some(_)) =
-            state.process_message(IncomingMessage::GetWorkSlices(id))
-        else {
-            panic!("Should've gotten WorkSlices with Some(current) when trying to GetWorkSlices!");
+        let (completed, Some(_)) = state.work_slices(id) else {
+            panic!("There should be some current work!");
         };
         assert!(completed.len() == 0);
 
         thread::sleep(Duration::from_millis(5000));
 
-        let OutgoingMessage::WorkEnded = state.process_message(IncomingMessage::EndWorkNow(id))
-        else {
-            panic!("Should've gotten WorkEnded!");
+        let Ok(()) = state.end_work_now(id) else {
+            panic!("Should be able to end work!");
         };
 
-        let OutgoingMessage::WorkSlices(completed, None) =
-            state.process_message(IncomingMessage::GetWorkSlices(id))
-        else {
-            panic!("Failed to get WorkSlices the second time!");
+        let (completed, None) = state.work_slices(id) else {
+            panic!("there shouldn't be any work!");
         };
         assert_eq!(completed.len(), 1);
         assert!(completed[0].duration() >= Duration::from_millis(5000));
