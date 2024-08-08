@@ -2,6 +2,33 @@ use std::time::{Duration, Instant};
 
 use crate::payment::{MoneyExact, Payment};
 
+pub enum WorkSlice {
+    Complete(CompleteWorkSlice),
+    Incomplete(IncompleteWorkSlice),
+}
+impl WorkSlice {
+    pub fn as_complete(self) -> Option<CompleteWorkSlice> {
+        match self {
+            Self::Complete(x) => Some(x),
+            Self::Incomplete(_) => None,
+        }
+    }
+
+    pub fn as_incomplete(self) -> Option<IncompleteWorkSlice> {
+        match self {
+            Self::Complete(_) => None,
+            Self::Incomplete(x) => Some(x),
+        }
+    }
+
+    pub fn unwrap(self) -> CompleteWorkSlice {
+        match self {
+            Self::Complete(x) => x,
+            Self::Incomplete(x) => panic!("Trying to unwrap a WorkSlice::Incomplete! {:#?}", x),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WorkSliceId(u64);
 impl WorkSliceId {
@@ -25,7 +52,7 @@ impl IncompleteWorkSlice {
         }
     }
 
-    pub fn complete(self, end: Instant) -> Option<CompleteWorkSlice> {
+    pub fn complete(self, end: Instant) -> WorkSlice {
         CompleteWorkSlice::new(self, end)
     }
 
@@ -52,16 +79,16 @@ pub struct CompleteWorkSlice {
     id: WorkSliceId,
 }
 impl CompleteWorkSlice {
-    pub fn new(work_slice: IncompleteWorkSlice, end: Instant) -> Option<Self> {
+    pub fn new(work_slice: IncompleteWorkSlice, end: Instant) -> WorkSlice {
         if end > work_slice.start {
-            Some(Self {
+            WorkSlice::Complete(Self {
                 end,
                 start: work_slice.start,
                 payment: work_slice.payment,
                 id: work_slice.id,
             })
         } else {
-            None
+            WorkSlice::Incomplete(work_slice)
         }
     }
 

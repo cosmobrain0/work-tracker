@@ -1,4 +1,5 @@
 mod payment;
+mod project;
 mod work_slice;
 
 fn main() {
