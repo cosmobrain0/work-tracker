@@ -9,7 +9,10 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, Instant};
+    use std::{
+        thread,
+        time::{Duration, Instant},
+    };
 
     use crate::{
         payment::{Money, MoneyExact, Payment},
@@ -224,5 +227,27 @@ mod tests {
         ) else {
             panic!("Should've gotten an AlreadyStartedWork when trying to start work again!");
         };
+
+        let OutgoingMessage::WorkSlices(completed, Some(_)) =
+            state.process_message(IncomingMessage::GetWorkSlices(id))
+        else {
+            panic!("Should've gotten WorkSlices with Some(current) when trying to GetWorkSlices!");
+        };
+        assert!(completed.len() == 0);
+
+        thread::sleep(Duration::from_millis(5000));
+
+        let OutgoingMessage::WorkEnded = state.process_message(IncomingMessage::EndWorkNow(id))
+        else {
+            panic!("Should've gotten WorkEnded!");
+        };
+
+        let OutgoingMessage::WorkSlices(completed, None) =
+            state.process_message(IncomingMessage::GetWorkSlices(id))
+        else {
+            panic!("Failed to get WorkSlices the second time!");
+        };
+        assert_eq!(completed.len(), 1);
+        assert!(completed[0].duration() >= Duration::from_millis(5000));
     }
 }
