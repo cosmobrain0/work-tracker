@@ -8,7 +8,7 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompleteWorkError {
     NoWorkToComplete,
-    EndTimeTooLate,
+    EndTimeTooEarly,
 }
 impl Display for CompleteWorkError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -50,6 +50,18 @@ impl Project {
         }
     }
 
+    pub fn complete_work_slices(&self) -> Vec<&CompleteWorkSlice> {
+        self.work_slices.iter().collect()
+    }
+
+    pub fn current_work_slice(&self) -> Option<&IncompleteWorkSlice> {
+        self.current_slice.as_ref()
+    }
+
+    pub fn id(&self) -> ProjectId {
+        self.id
+    }
+
     pub fn add_slice(&mut self, work_slice: CompleteWorkSlice) {
         self.work_slices.push(work_slice);
     }
@@ -83,7 +95,7 @@ impl Project {
                 }
                 WorkSlice::Incomplete(incomplete) => {
                     self.current_slice = Some(incomplete);
-                    Err(CompleteWorkError::EndTimeTooLate)
+                    Err(CompleteWorkError::EndTimeTooEarly)
                 }
             },
             None => Err(CompleteWorkError::NoWorkToComplete),

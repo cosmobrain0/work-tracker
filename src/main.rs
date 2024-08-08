@@ -1,5 +1,6 @@
 mod payment;
 mod project;
+mod state;
 mod work_slice;
 
 fn main() {
@@ -13,6 +14,7 @@ mod tests {
     use crate::{
         payment::{Money, MoneyExact, Payment},
         project::{Project, ProjectId},
+        state::{IncomingMessage, OutgoingMessage, State},
         work_slice::{IncompleteWorkSlice, WorkSliceId},
     };
 
@@ -184,5 +186,17 @@ mod tests {
         assert_eq!(tests[0], tests[0]);
         assert_ne!(tests[0], tests[1]);
         assert_ne!(tests[1], tests[0]);
+    }
+
+    #[test]
+    fn state_creates_many_projects() {
+        let mut state = State::new();
+        for i in 0..10000 {
+            let message = state.process_message(IncomingMessage::CreateProject {
+                name: String::from("Example Project"),
+                description: String::from("Example description!"),
+            });
+            assert_eq!(message, OutgoingMessage::ProjectCreated);
+        }
     }
 }
