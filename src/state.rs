@@ -24,8 +24,8 @@ impl State {
     pub fn process_message<'a>(&'a mut self, message: IncomingMessage) -> OutgoingMessage<'a> {
         match message {
             IncomingMessage::CreateProject { name, description } => {
-                self.create_project(name, description);
-                OutgoingMessage::ProjectCreated
+                let id = self.create_project(name, description);
+                OutgoingMessage::ProjectCreated(id)
             }
             IncomingMessage::StartWorkNow(id, payment) => {
                 let work_id = self.create_work_slice_id();
@@ -83,7 +83,7 @@ impl State {
         WorkSliceId::new(id)
     }
 
-    fn create_project(&mut self, name: String, description: String) {
+    fn create_project(&mut self, name: String, description: String) -> ProjectId {
         if self.previous_project_id == u64::MAX {
             panic!("Can't generate a new project id!");
         }
@@ -93,6 +93,7 @@ impl State {
         self.projects.push(project);
 
         self.previous_project_id = id;
+        ProjectId::new(id)
     }
 
     fn get_project(&mut self, id: ProjectId) -> &mut Project {
@@ -113,7 +114,7 @@ pub enum IncomingMessage {
 #[must_use]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OutgoingMessage<'a> {
-    ProjectCreated,
+    ProjectCreated(ProjectId),
 
     WorkStarted,
     AlreadyStartedWork,

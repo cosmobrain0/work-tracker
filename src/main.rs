@@ -196,7 +196,33 @@ mod tests {
                 name: String::from("Example Project"),
                 description: String::from("Example description!"),
             });
-            assert_eq!(message, OutgoingMessage::ProjectCreated);
+            assert!(matches!(message, OutgoingMessage::ProjectCreated(_)));
         }
+    }
+
+    #[test]
+    fn state_create_single_project() {
+        let mut state = State::new();
+        let OutgoingMessage::ProjectCreated(id) =
+            state.process_message(IncomingMessage::CreateProject {
+                name: String::from("Example Project"),
+                description: String::from("Example Description"),
+            })
+        else {
+            panic!("Failed to create a project!");
+        };
+
+        let OutgoingMessage::WorkStarted = state.process_message(IncomingMessage::StartWorkNow(
+            id,
+            Payment::Hourly(Money::new(800)),
+        )) else {
+            panic!("Failed to start work on a project!");
+        };
+
+        let OutgoingMessage::AlreadyStartedWork = state.process_message(
+            IncomingMessage::StartWorkNow(id, Payment::Hourly(Money::new(500))),
+        ) else {
+            panic!("Should've gotten an AlreadyStartedWork when trying to start work again!");
+        };
     }
 }
