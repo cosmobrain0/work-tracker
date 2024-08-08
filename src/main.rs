@@ -12,6 +12,7 @@ mod tests {
 
     use crate::{
         payment::{Money, MoneyExact, Payment},
+        project::{Project, ProjectId},
         work_slice::{IncompleteWorkSlice, WorkSliceId},
     };
 
@@ -164,5 +165,24 @@ mod tests {
                 payment.as_pence(),
             ));
         }
+    }
+
+    #[test]
+    fn project_equality() {
+        let tests = [
+            Project::new(
+                "hello".to_string(),
+                "this is a test".to_string(),
+                ProjectId::new(1),
+            ),
+            Project::new(
+                "hi".to_string(),
+                "this is a test".to_string(),
+                ProjectId::new(2),
+            ),
+        ];
+        assert_eq!(tests[0], tests[0]);
+        assert_ne!(tests[0], tests[1]);
+        assert_ne!(tests[1], tests[0]);
     }
 }

@@ -1,25 +1,44 @@
-use std::time::Instant;
+use std::{error::Error, fmt::Display, time::Instant};
 
 use crate::{
     payment::Payment,
     work_slice::{CompleteWorkSlice, IncompleteWorkSlice, WorkSlice, WorkSliceId},
 };
 
-enum CompleteWorkError {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompleteWorkError {
     NoWorkToComplete,
     EndTimeTooLate,
 }
+impl Display for CompleteWorkError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#?}", self)
+    }
+}
+impl Error for CompleteWorkError {}
 
-struct ProjectId(u64);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ProjectId(u64);
+impl ProjectId {
+    pub fn new(id: u64) -> Self {
+        Self(id)
+    }
+}
 
-struct Project {
+#[derive(Debug)]
+pub struct Project {
     name: String,
     description: String,
     work_slices: Vec<CompleteWorkSlice>,
     current_slice: Option<IncompleteWorkSlice>,
     id: ProjectId,
 }
-
+impl PartialEq for Project {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+impl Eq for Project {}
 impl Project {
     pub fn new(name: String, description: String, id: ProjectId) -> Self {
         Self {
