@@ -113,6 +113,19 @@ impl State {
         self.projects.iter().find(|x| x.id() == id)
     }
 
+    pub fn delete_project(&mut self, project_id: ProjectId) -> Result<Project, InvalidProjectId> {
+        match self
+            .projects
+            .iter()
+            .enumerate()
+            .find(|(i, x)| x.id() == project_id)
+            .map(|(i, _)| i)
+        {
+            Some(i) => Ok(self.projects.remove(i)),
+            None => Err(InvalidProjectId),
+        }
+    }
+
     pub fn delete_work_slice_from_project(
         &mut self,
         project_id: ProjectId,
