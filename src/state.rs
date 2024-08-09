@@ -21,6 +21,10 @@ impl State {
         }
     }
 
+    pub fn projects(&self) -> Vec<ProjectId> {
+        self.projects.iter().map(|x| x.id()).collect()
+    }
+
     pub fn start_work_now(
         &mut self,
         payment: Payment,

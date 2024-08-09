@@ -17,7 +17,7 @@ mod tests {
     use crate::{
         payment::{Money, MoneyExact, Payment},
         project::{Project, ProjectId},
-        state::State,
+        state::{InvalidProjectId, NotFoundError, State},
         work_slice::{IncompleteWorkSlice, WorkSliceId},
     };
 
@@ -237,5 +237,117 @@ mod tests {
     }
 
     #[test]
-    fn state_delete_project() {}
+    fn state_delete_project() {
+        let now = Instant::now();
+
+        let mut state = State::new();
+        let project_0 = state.create_project(
+            String::from("Project 0"),
+            String::from("The first project, which will have two work slices."),
+        );
+        let project_1 = state.create_project(
+            String::from("Project 1"),
+            String::from(
+                "The second project, which will have one work slice, and then be deleted.",
+            ),
+        );
+        let project_2 = state.create_project(
+            String::from("Project 2"),
+            String::from(
+                "The third project, which will have two work slices, one of which will be deleted.",
+            ),
+        );
+
+        state
+            .start_work(
+                now - Duration::from_secs(2 * 60 * 60),
+                Payment::Fixed(Money::new(4000)),
+                project_0,
+            )
+            .unwrap();
+        state
+            .end_work(now - Duration::from_secs(60 * 60), project_0)
+            .unwrap();
+        state
+            .start_work(
+                now - Duration::from_secs(30 * 60),
+                Payment::Hourly(Money::new(500)),
+                project_0,
+            )
+            .unwrap();
+        state.end_work_now(project_0).unwrap();
+
+        state
+            .start_work(
+                now - Duration::from_secs(3 * 60 * 60),
+                Payment::Hourly(Money::new(2000)),
+                project_1,
+            )
+            .unwrap();
+        state.end_work_now(project_1).unwrap();
+
+        state
+            .start_work(
+                now - Duration::from_secs(5 * 60 * 60),
+                Payment::Fixed(Money::new(5000)),
+                project_2,
+            )
+            .unwrap();
+        state
+            .end_work(now - Duration::from_secs(4 * 60 * 60), project_2)
+            .unwrap();
+
+        let projects = state.projects();
+        assert_eq!(projects.len(), 3);
+
+        let project_0_work = state.work_slices(project_0).unwrap();
+        assert_eq!(project_0_work.1, None);
+        assert_eq!(project_0_work.0.len(), 2);
+
+        let project_1_work = state.work_slices(project_1).unwrap();
+        assert_eq!(project_1_work.1, None);
+        assert_eq!(project_1_work.0.len(), 1);
+
+        let project_2_work = state.work_slices(project_2).unwrap();
+        assert_eq!(project_2_work.1, None);
+        assert_eq!(project_2_work.0.len(), 1);
+
+        state.delete_project(project_1).unwrap();
+        assert_eq!(state.projects().len(), 2);
+        assert!(matches!(
+            state.work_slices(project_1),
+            Err(InvalidProjectId)
+        ));
+        assert!(matches!(state.work_slices(project_0), Ok((_, None))));
+        assert!(matches!(state.work_slices(project_2), Ok((_, None))));
+
+        state
+            .delete_work_slice_from_project(
+                project_0,
+                state.work_slices(project_0).unwrap().0[0].id(),
+            )
+            .unwrap();
+        assert!(matches!(
+            state.delete_work_slice_from_project(
+                project_0,
+                state.work_slices(project_2).unwrap().0[0].id()
+            ),
+            Err(NotFoundError::WorkSliceNotFound)
+        ));
+        state
+            .delete_work_slice_from_project(
+                project_2,
+                state.work_slices(project_2).unwrap().0[0].id(),
+            )
+            .unwrap();
+
+        let project_0_work = state.work_slices(project_0).unwrap();
+        let project_2_work = state.work_slices(project_2).unwrap();
+        assert_eq!(
+            project_0_work.0[0].start(),
+            now - Duration::from_secs(30 * 60)
+        );
+        assert!(project_2_work.0.is_empty());
+        assert_eq!(project_0_work.0.len(), 1);
+    }
 }
