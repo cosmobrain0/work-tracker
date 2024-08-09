@@ -1,10 +1,12 @@
 use std::{error::Error, fmt::Display, time::Instant};
 
-use crate::{
-    payment::Payment,
-    project::{CompleteWorkError, Project, ProjectId},
-    work_slice::{CompleteWorkSlice, IncompleteWorkSlice, WorkSlice, WorkSliceId},
-};
+mod payment;
+mod project;
+mod work_slice;
+
+pub use payment::*;
+pub use project::*;
+pub use work_slice::*;
 
 #[derive(Debug)]
 pub struct State {
