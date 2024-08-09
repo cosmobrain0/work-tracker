@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::Add, time::Duration};
+use std::{fmt::Display, iter::Sum, ops::Add, time::Duration};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Money(u32);
@@ -9,6 +9,11 @@ impl Money {
 
     pub fn as_pence(&self) -> u32 {
         self.0
+    }
+}
+impl Sum<Money> for Money {
+    fn sum<I: Iterator<Item = Money>>(iter: I) -> Self {
+        Money(iter.map(|x| x.0).sum())
     }
 }
 impl Display for Money {
@@ -36,6 +41,11 @@ impl MoneyExact {
     }
     pub fn as_pence(&self) -> f64 {
         self.0
+    }
+}
+impl Sum<MoneyExact> for MoneyExact {
+    fn sum<I: Iterator<Item = MoneyExact>>(iter: I) -> Self {
+        MoneyExact(iter.map(|x| x.0).sum())
     }
 }
 

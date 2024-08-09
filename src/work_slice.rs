@@ -44,6 +44,19 @@ pub struct IncompleteWorkSlice {
     id: WorkSliceId,
 }
 impl IncompleteWorkSlice {
+    pub fn start(&self) -> Instant {
+        self.start
+    }
+
+    pub fn payment(&self) -> Payment {
+        self.payment
+    }
+
+    pub fn id(&self) -> WorkSliceId {
+        self.id
+    }
+}
+impl IncompleteWorkSlice {
     pub fn new(start: Instant, payment: Payment, id: WorkSliceId) -> Option<Self> {
         if start <= Instant::now() {
             Some(Self { start, payment, id })
@@ -77,6 +90,23 @@ pub struct CompleteWorkSlice {
     end: Instant,
     payment: Payment,
     id: WorkSliceId,
+}
+impl CompleteWorkSlice {
+    pub fn start(&self) -> Instant {
+        self.start
+    }
+
+    pub fn payment(&self) -> Payment {
+        self.payment
+    }
+
+    pub fn id(&self) -> WorkSliceId {
+        self.id
+    }
+
+    pub fn end(&self) -> Instant {
+        self.end
+    }
 }
 impl CompleteWorkSlice {
     pub fn new(work_slice: IncompleteWorkSlice, end: Instant) -> WorkSlice {

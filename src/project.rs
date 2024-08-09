@@ -1,7 +1,7 @@
 use std::{error::Error, fmt::Display, time::Instant};
 
 use crate::{
-    payment::Payment,
+    payment::{MoneyExact, Payment},
     work_slice::{CompleteWorkSlice, IncompleteWorkSlice, WorkSlice, WorkSliceId},
 };
 
@@ -40,6 +40,23 @@ impl PartialEq for Project {
 }
 impl Eq for Project {}
 impl Project {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    pub fn description(&self) -> &String {
+        &self.description
+    }
+    pub fn work_slices(&self) -> Vec<&CompleteWorkSlice> {
+        self.work_slices.iter().collect()
+    }
+    pub fn current_slice(&self) -> Option<&IncompleteWorkSlice> {
+        self.current_slice.as_ref()
+    }
+    pub fn id(&self) -> ProjectId {
+        self.id
+    }
+}
+impl Project {
     pub fn new(name: String, description: String, id: ProjectId) -> Self {
         Self {
             name,
@@ -56,10 +73,6 @@ impl Project {
 
     pub fn current_work_slice(&self) -> Option<&IncompleteWorkSlice> {
         self.current_slice.as_ref()
-    }
-
-    pub fn id(&self) -> ProjectId {
-        self.id
     }
 
     pub fn add_slice(&mut self, work_slice: CompleteWorkSlice) {
@@ -109,6 +122,34 @@ impl Project {
                 Ok(())
             }
             None => Err(()),
+        }
+    }
+
+    pub fn payment(&self) -> MoneyExact {
+        self.work_slices
+            .iter()
+            .map(|slice| slice.calculate_payment())
+            .sum()
+    }
+
+    pub fn delete_work_slice(&mut self, work_slice_id: WorkSliceId) -> Result<WorkSlice, ()> {
+        if self
+            .current_slice
+            .as_ref()
+            .is_some_and(|x| x.id() == work_slice_id)
+        {
+            Ok(WorkSlice::Incomplete(self.current_slice.take().unwrap()))
+        } else {
+            match self
+                .work_slices
+                .iter()
+                .enumerate()
+                .find(|(i, x)| x.id() == work_slice_id)
+                .map(|(i, x)| i)
+            {
+                Some(i) => Ok(WorkSlice::Complete(self.work_slices.remove(i))),
+                None => Err(()),
+            }
         }
     }
 }

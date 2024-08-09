@@ -17,7 +17,7 @@ mod tests {
     use crate::{
         payment::{Money, MoneyExact, Payment},
         project::{Project, ProjectId},
-        state::{State, WorkAlreadyStartedError},
+        state::State,
         work_slice::{IncompleteWorkSlice, WorkSliceId},
     };
 
@@ -214,13 +214,11 @@ mod tests {
             panic!("Couldn't start work!");
         };
 
-        let Err(WorkAlreadyStartedError) =
-            state.start_work_now(Payment::Hourly(Money::new(500)), id)
-        else {
+        let Err(WorkStartError) = state.start_work_now(Payment::Hourly(Money::new(500)), id) else {
             panic!("Shouldn't be able to start work!");
         };
 
-        let (completed, Some(_)) = state.work_slices(id) else {
+        let Ok((completed, Some(_))) = state.work_slices(id) else {
             panic!("There should be some current work!");
         };
         assert!(completed.len() == 0);
@@ -231,10 +229,13 @@ mod tests {
             panic!("Should be able to end work!");
         };
 
-        let (completed, None) = state.work_slices(id) else {
+        let Ok((completed, None)) = state.work_slices(id) else {
             panic!("there shouldn't be any work!");
         };
         assert_eq!(completed.len(), 1);
         assert!(completed[0].duration() >= Duration::from_millis(5000));
     }
+
+    #[test]
+    fn state_delete_project() {}
 }
