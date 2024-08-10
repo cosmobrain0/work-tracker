@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use chrono::{DateTime, TimeDelta, Utc};
 
 use crate::state::payment::{MoneyExact, Payment};
 
@@ -39,12 +39,12 @@ impl WorkSliceId {
 
 #[derive(Debug, PartialOrd, Ord)]
 pub struct IncompleteWorkSlice {
-    start: Instant,
+    start: DateTime<Utc>,
     payment: Payment,
     id: WorkSliceId,
 }
 impl IncompleteWorkSlice {
-    pub fn start(&self) -> Instant {
+    pub fn start(&self) -> DateTime<Utc> {
         self.start
     }
 
@@ -57,24 +57,24 @@ impl IncompleteWorkSlice {
     }
 }
 impl IncompleteWorkSlice {
-    pub(super) fn new(start: Instant, payment: Payment, id: WorkSliceId) -> Option<Self> {
-        if start <= Instant::now() {
+    pub(super) fn new(start: DateTime<Utc>, payment: Payment, id: WorkSliceId) -> Option<Self> {
+        if start <= Utc::now() {
             Some(Self { start, payment, id })
         } else {
             None
         }
     }
 
-    pub(super) fn complete(self, end: Instant) -> WorkSlice {
+    pub(super) fn complete(self, end: DateTime<Utc>) -> WorkSlice {
         CompleteWorkSlice::new(self, end)
     }
 
     pub(super) fn complete_now(self) -> CompleteWorkSlice {
-        CompleteWorkSlice::new(self, Instant::now()).unwrap()
+        CompleteWorkSlice::new(self, Utc::now()).unwrap()
     }
 
     pub(super) fn payment_so_far(&self) -> Option<MoneyExact> {
-        Some(self.payment.calculate(Instant::now() - self.start))
+        Some(self.payment.calculate(Utc::now() - self.start))
     }
 }
 impl PartialEq for IncompleteWorkSlice {
@@ -86,13 +86,13 @@ impl Eq for IncompleteWorkSlice {}
 
 #[derive(Debug, PartialOrd, Ord)]
 pub struct CompleteWorkSlice {
-    start: Instant,
-    end: Instant,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
     payment: Payment,
     id: WorkSliceId,
 }
 impl CompleteWorkSlice {
-    pub fn start(&self) -> Instant {
+    pub fn start(&self) -> DateTime<Utc> {
         self.start
     }
 
@@ -104,12 +104,12 @@ impl CompleteWorkSlice {
         self.id
     }
 
-    pub fn end(&self) -> Instant {
+    pub fn end(&self) -> DateTime<Utc> {
         self.end
     }
 }
 impl CompleteWorkSlice {
-    pub(super) fn new(work_slice: IncompleteWorkSlice, end: Instant) -> WorkSlice {
+    pub(super) fn new(work_slice: IncompleteWorkSlice, end: DateTime<Utc>) -> WorkSlice {
         if end > work_slice.start {
             WorkSlice::Complete(Self {
                 end,
@@ -122,7 +122,7 @@ impl CompleteWorkSlice {
         }
     }
 
-    pub fn duration(&self) -> Duration {
+    pub fn duration(&self) -> TimeDelta {
         self.end - self.start
     }
 
@@ -139,14 +139,14 @@ impl Eq for CompleteWorkSlice {}
 
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, Instant};
+    use chrono::{TimeDelta, Utc};
 
     use crate::state::{IncompleteWorkSlice, Money, MoneyExact, Payment, WorkSliceId};
 
     #[test]
     fn incomplete_work_slice_eq() {
-        let now = Instant::now();
-        let before = now - Duration::from_secs(5 * 60 * 60);
+        let now = Utc::now();
+        let before = now - TimeDelta::seconds(5 * 60 * 60);
         let tests = [
             IncompleteWorkSlice::new(
                 before,
@@ -170,9 +170,9 @@ mod tests {
 
     #[test]
     fn work_slice_payment_calculation() {
-        let now = Instant::now();
-        let after = now + Duration::from_secs(5 * 60 * 60);
-        let before = now - Duration::from_secs(5 * 60 * 60);
+        let now = Utc::now();
+        let after = now + TimeDelta::seconds(5 * 60 * 60);
+        let before = now - TimeDelta::seconds(5 * 60 * 60);
         let mut tests = vec![
             (
                 IncompleteWorkSlice::new(

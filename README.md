@@ -30,3 +30,18 @@ We then need a "state" and a "message-response" system:
 - the state will respond to requests with success/falure
 
 and then to figure out how to store "state" permanently, ideally in a database.
+
+## Database
+
+Money - bigint
+Payment - bool hourly, bigint value
+incomplete_work_slice
+complete_work_slice
+project
+
+tables:
+Projects (project project)
+WorkSlices (slice complete_work_slice, project_id bigint)
+
+views: TODO
+

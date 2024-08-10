@@ -1,4 +1,6 @@
-use std::{fmt::Display, iter::Sum, ops::Add, time::Duration};
+use std::{fmt::Display, iter::Sum, ops::Add};
+
+use chrono::TimeDelta;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Money(u32);
@@ -94,11 +96,11 @@ pub enum Payment {
 }
 
 impl Payment {
-    pub fn calculate(&self, time: Duration) -> MoneyExact {
+    pub fn calculate(&self, time: TimeDelta) -> MoneyExact {
         match *self {
-            Payment::Hourly(hourly) => {
-                MoneyExact(hourly.as_pence() as f64 * time.as_secs_f64() / (60.0 * 60.0))
-            }
+            Payment::Hourly(hourly) => MoneyExact(
+                hourly.as_pence() as f64 * time.num_milliseconds() as f64 / 1000.0 / (60.0 * 60.0),
+            ),
             Payment::Fixed(money) => money.into(),
         }
     }
@@ -106,7 +108,7 @@ impl Payment {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use chrono::TimeDelta;
 
     use super::{Money, Payment};
 
@@ -130,31 +132,47 @@ mod tests {
         let tests = [
             (
                 Payment::Fixed(Money::new(8000)),
-                Duration::new(10, 23),
+                TimeDelta::new(10, 23).unwrap(),
                 8000.0,
             ),
             (
                 Payment::Fixed(Money::new(4500)),
-                Duration::new(15, 28),
+                TimeDelta::new(15, 28).unwrap(),
                 4500.0,
             ),
-            (Payment::Fixed(Money::new(23)), Duration::new(13, 23), 23.0),
-            (Payment::Fixed(Money::new(45)), Duration::new(118, 23), 45.0),
-            (Payment::Fixed(Money::new(0)), Duration::new(12, 23), 0.0),
-            (Payment::Fixed(Money::new(1)), Duration::new(1121, 23), 1.0),
+            (
+                Payment::Fixed(Money::new(23)),
+                TimeDelta::new(13, 23).unwrap(),
+                23.0,
+            ),
+            (
+                Payment::Fixed(Money::new(45)),
+                TimeDelta::new(118, 23).unwrap(),
+                45.0,
+            ),
+            (
+                Payment::Fixed(Money::new(0)),
+                TimeDelta::new(12, 23).unwrap(),
+                0.0,
+            ),
+            (
+                Payment::Fixed(Money::new(1)),
+                TimeDelta::new(1121, 23).unwrap(),
+                1.0,
+            ),
             (
                 Payment::Fixed(Money::new(100)),
-                Duration::new(15, 23),
+                TimeDelta::new(15, 23).unwrap(),
                 100.0,
             ),
             (
                 Payment::Fixed(Money::new(245)),
-                Duration::new(16, 23),
+                TimeDelta::new(16, 23).unwrap(),
                 245.0,
             ),
             (
                 Payment::Fixed(Money::new(4563)),
-                Duration::new(3273, 393),
+                TimeDelta::new(3273, 393).unwrap(),
                 4563.0,
             ),
         ];
@@ -173,7 +191,9 @@ mod tests {
         for (hourly, duration, total) in tests {
             assert_eq!(
                 Payment::Hourly(Money::new(hourly))
-                    .calculate(Duration::from_secs_f64(duration * 60.0 * 60.0))
+                    .calculate(TimeDelta::seconds(
+                        (duration * 60.0f64 * 60.0).floor() as i64
+                    ))
                     .as_pence(),
                 total
             );

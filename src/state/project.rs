@@ -1,4 +1,6 @@
-use std::{error::Error, fmt::Display, time::Instant};
+use std::{error::Error, fmt::Display};
+
+use chrono::{DateTime, Utc};
 
 use crate::{
     state::payment::{MoneyExact, Payment},
@@ -90,15 +92,14 @@ impl Project {
 
     pub fn start_work_now(&mut self, payment: Payment, id: WorkSliceId) -> Result<(), ()> {
         if self.current_slice.is_none() {
-            self.current_slice =
-                Some(IncompleteWorkSlice::new(Instant::now(), payment, id).unwrap());
+            self.current_slice = Some(IncompleteWorkSlice::new(Utc::now(), payment, id).unwrap());
             Ok(())
         } else {
             Err(())
         }
     }
 
-    pub fn complete_work(&mut self, end: Instant) -> Result<(), CompleteWorkError> {
+    pub fn complete_work(&mut self, end: DateTime<Utc>) -> Result<(), CompleteWorkError> {
         match self.current_slice.take() {
             Some(current_work) => match current_work.complete(end) {
                 WorkSlice::Complete(complete) => {
@@ -156,10 +157,9 @@ impl Project {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        thread,
-        time::{Duration, Instant},
-    };
+    use std::{thread, time::Duration};
+
+    use chrono::{TimeDelta, Utc};
 
     use crate::state::{Money, NotFoundError, Payment, Project, ProjectId, State};
 
@@ -224,12 +224,12 @@ mod tests {
             panic!("there shouldn't be any work!");
         };
         assert_eq!(completed.len(), 1);
-        assert!(completed[0].duration() >= Duration::from_millis(5000));
+        assert!(completed[0].duration() >= TimeDelta::milliseconds(5000));
     }
 
     #[test]
     fn state_delete_project() {
-        let now = Instant::now();
+        let now = Utc::now();
 
         let mut state = State::new();
         let project_0 = state.create_project(
@@ -251,17 +251,17 @@ mod tests {
 
         state
             .start_work(
-                now - Duration::from_secs(2 * 60 * 60),
+                now - TimeDelta::seconds(2 * 60 * 60),
                 Payment::Fixed(Money::new(4000)),
                 project_0,
             )
             .unwrap();
         state
-            .end_work(now - Duration::from_secs(60 * 60), project_0)
+            .end_work(now - TimeDelta::seconds(60 * 60), project_0)
             .unwrap();
         state
             .start_work(
-                now - Duration::from_secs(30 * 60),
+                now - TimeDelta::seconds(30 * 60),
                 Payment::Hourly(Money::new(500)),
                 project_0,
             )
@@ -270,7 +270,7 @@ mod tests {
 
         state
             .start_work(
-                now - Duration::from_secs(3 * 60 * 60),
+                now - TimeDelta::seconds(3 * 60 * 60),
                 Payment::Hourly(Money::new(2000)),
                 project_1,
             )
@@ -279,13 +279,13 @@ mod tests {
 
         state
             .start_work(
-                now - Duration::from_secs(5 * 60 * 60),
+                now - TimeDelta::seconds(5 * 60 * 60),
                 Payment::Fixed(Money::new(5000)),
                 project_2,
             )
             .unwrap();
         state
-            .end_work(now - Duration::from_secs(4 * 60 * 60), project_2)
+            .end_work(now - TimeDelta::seconds(4 * 60 * 60), project_2)
             .unwrap();
 
         let projects = state.projects();
@@ -336,7 +336,7 @@ mod tests {
         let project_2_work = state.work_slices(project_2).unwrap();
         assert_eq!(
             project_0_work.0[0].start(),
-            now - Duration::from_secs(30 * 60)
+            now - TimeDelta::seconds(30 * 60)
         );
         assert!(project_2_work.0.is_empty());
         assert_eq!(project_0_work.0.len(), 1);

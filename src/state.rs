@@ -1,9 +1,10 @@
-use std::{error::Error, fmt::Display, time::Instant};
+use std::{error::Error, fmt::Display};
 
 mod payment;
 mod project;
 mod work_slice;
 
+use chrono::{DateTime, Utc};
 pub use payment::*;
 pub use project::*;
 pub use work_slice::*;
@@ -52,7 +53,7 @@ impl State {
 
     pub fn start_work(
         &mut self,
-        start: Instant,
+        start: DateTime<Utc>,
         payment: Payment,
         id: ProjectId,
     ) -> Result<(), WorkStartError> {
@@ -68,7 +69,7 @@ impl State {
             .map_err(|_| WorkStartError::AlreadyStarted)
     }
 
-    pub fn end_work(&mut self, end: Instant, id: ProjectId) -> Result<(), WorkEndError> {
+    pub fn end_work(&mut self, end: DateTime<Utc>, id: ProjectId) -> Result<(), WorkEndError> {
         let Some(project) = self.get_project_mut(id) else {
             return Err(WorkEndError::InvalidProjectId);
         };
