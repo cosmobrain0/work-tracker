@@ -1,7 +1,10 @@
 use chrono::{DateTime, TimeDelta, Utc};
 use tokio_postgres::types::{Field, FromSql, Kind, Type};
 
-use crate::state::payment::{MoneyExact, Payment};
+use crate::{
+    state::payment::{MoneyExact, Payment},
+    take, take_u32,
+};
 
 pub enum WorkSlice {
     Complete(CompleteWorkSlice),
@@ -49,35 +52,31 @@ impl<'a> FromSql<'a> for IncompleteWorkSlice {
         ty: &tokio_postgres::types::Type,
         raw: &'a [u8],
     ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        let mut raw = raw.into_iter().cloned().rev().collect::<Vec<_>>();
+
+        // three fields...
+        assert_eq!(take!(raw, 4), &[0, 0, 0, 3]);
+        // ...starting with a TIMESPAN WITH TIMEZONE...
+        let timestamp_oid: u32 = 1184;
+        assert_eq!(
+            take!(raw, 4),
+            &[
+                0,
+                0,
+                (timestamp_oid >> 4) as u8,
+                (timestamp_oid & 255) as u8
+            ]
+        );
+        let length = take_u32!(raw) as usize;
+        let start = DateTime::<Utc>::from_sql(
+            &Type::from_oid(timestamp_oid).unwrap(),
+            &take!(raw, length),
+        )?;
+        dbg!(start);
+
+        let payment_oid: u32 = todo!("Payment OID");
+
         todo!()
-        // let mut i = 0;
-        // // three fields...
-        // assert_eq!(&raw[i..4], &[0, 0, 0, 3]);
-        // i += 4;
-        // // ...starting with a TIMESPAN WITH TIMEZONE...
-        // let timestamp_oid: u32 = 1184;
-        // assert_eq!(
-        //     &raw[i..i + 8],
-        //     &[
-        //         0,
-        //         0,
-        //         (timestamp_oid >> 4) as u8,
-        //         (timestamp_oid & 255) as u8
-        //     ]
-        // );
-        // i += 4;
-        // let length = u32::from_be_bytes(raw[8..12].try_into()?);
-        // i += 4;
-        // let start = DateTime::<Utc>::from_sql(
-        //     &Type::from_oid(timestamp_oid).unwrap(),
-        //     &raw[i..i + length as usize],
-        // );
-        // i += length;
-        // dbg!(start);
-
-        // let payment_oid: u32 = todo!("Payment OID");
-
-        // todo!()
     }
 
     fn accepts(ty: &tokio_postgres::types::Type) -> bool {

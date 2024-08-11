@@ -8,20 +8,27 @@ use tokio_postgres::{
 use dotenvy::dotenv;
 use std::env;
 
-#[macro_export]
-macro_rules! take {
-    ($vec:expr, $n:expr) => {{
-        let mut x = $vec.split_off($vec.len() - $n);
-        x.reverse();
-        x
-    }};
+fn get_u32(raw: &[u8]) -> u32 {
+    u32::from_be_bytes(raw[0..4].try_into().unwrap())
 }
 
-#[macro_export]
-macro_rules! take_u32 {
-    ($vec: expr, $n: expr) => {
-        u32::from_be_bytes(take!($vec, $n).try_into()?)
-    };
+fn pop_u32(raw: &mut Vec<u8>) -> u32 {
+    let number = get_u32(&raw[..]);
+    *raw = raw.into_iter().skip(4).map(|x| *x).collect::<Vec<u8>>();
+    number
+}
+
+fn get_data(raw: &[u8]) -> (u32, usize, &[u8]) {
+    let oid = u32::from_be_bytes(raw[0..4].try_into().unwrap());
+    let length = u32::from_be_bytes(raw[4..8].try_into().unwrap()) as usize;
+    (oid, length, &raw[8..8 + length])
+}
+
+fn pop_data(raw: &mut Vec<u8>) -> (u32, Vec<u8>) {
+    let (oid, length, slice) = get_data(&raw[..]);
+    let slice = slice.to_vec();
+    *raw = raw.split_at(length + 8).1.to_vec();
+    (oid, slice)
 }
 
 #[derive(Debug, Clone)]
@@ -34,19 +41,19 @@ impl<'a> FromSql<'a> for Test {
         ty: &tokio_postgres::types::Type,
         raw: &'a [u8],
     ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        let mut raw = raw.into_iter().map(|x| *x).rev().collect::<Vec<_>>();
+        let mut raw = raw.to_vec();
+        let field_count = pop_u32(&mut raw);
+        assert_eq!(field_count, 2);
 
-        // two fields...
-        assert_eq!(take!(raw, 4)[..], [0, 0, 0, 2]);
-        // ...starting with a VARCHAR...
-        assert_eq!(take!(raw, 4)[..], [0, 0, 4, 19]);
-        let length = u32::from_be_bytes(take!(raw, 4)[..].try_into()?) as usize;
-        let name = String::from_sql(&Type::from_oid(1043).unwrap(), &take!(raw, length))?;
-        // ...followed by an INT4...
-        assert_eq!(take!(raw, 4), [0, 0, 0, 23]);
-        // ...which is 4 bytes long
-        assert_eq!(take!(raw, 4), [0, 0, 0, 4]);
-        let age = i32::from_sql(&Type::from_oid(23).unwrap(), &take!(raw, 4))?;
+        let (name_oid, name) = pop_data(&mut raw);
+        let (age_oid, age) = pop_data(&mut raw);
+
+        assert_eq!(name_oid, 1043);
+        assert_eq!(age_oid, 23);
+
+        let name = String::from_utf8(name)?;
+        let age = i32::from_be_bytes(age[0..4].try_into()?);
+
         Ok(Test { name, age })
     }
 
