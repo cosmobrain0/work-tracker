@@ -1,4 +1,5 @@
 use chrono::{DateTime, TimeDelta, Utc};
+use tokio_postgres::types::{Field, FromSql, Kind, Type};
 
 use crate::state::payment::{MoneyExact, Payment};
 
@@ -42,6 +43,46 @@ pub struct IncompleteWorkSlice {
     start: DateTime<Utc>,
     payment: Payment,
     id: WorkSliceId,
+}
+impl<'a> FromSql<'a> for IncompleteWorkSlice {
+    fn from_sql(
+        ty: &tokio_postgres::types::Type,
+        raw: &'a [u8],
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
+        todo!()
+        // let mut i = 0;
+        // // three fields...
+        // assert_eq!(&raw[i..4], &[0, 0, 0, 3]);
+        // i += 4;
+        // // ...starting with a TIMESPAN WITH TIMEZONE...
+        // let timestamp_oid: u32 = 1184;
+        // assert_eq!(
+        //     &raw[i..i + 8],
+        //     &[
+        //         0,
+        //         0,
+        //         (timestamp_oid >> 4) as u8,
+        //         (timestamp_oid & 255) as u8
+        //     ]
+        // );
+        // i += 4;
+        // let length = u32::from_be_bytes(raw[8..12].try_into()?);
+        // i += 4;
+        // let start = DateTime::<Utc>::from_sql(
+        //     &Type::from_oid(timestamp_oid).unwrap(),
+        //     &raw[i..i + length as usize],
+        // );
+        // i += length;
+        // dbg!(start);
+
+        // let payment_oid: u32 = todo!("Payment OID");
+
+        // todo!()
+    }
+
+    fn accepts(ty: &tokio_postgres::types::Type) -> bool {
+        dbg!(ty.name() == "incomplete_work_slice")
+    }
 }
 impl IncompleteWorkSlice {
     pub fn start(&self) -> DateTime<Utc> {
