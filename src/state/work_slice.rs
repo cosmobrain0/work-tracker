@@ -1,10 +1,7 @@
 use chrono::{DateTime, TimeDelta, Utc};
 use tokio_postgres::types::{Field, FromSql, Kind, Type};
 
-use crate::{
-    state::payment::{MoneyExact, Payment},
-    take, take_u32,
-};
+use crate::state::payment::{MoneyExact, Payment};
 
 pub enum WorkSlice {
     Complete(CompleteWorkSlice),
@@ -52,30 +49,6 @@ impl<'a> FromSql<'a> for IncompleteWorkSlice {
         ty: &tokio_postgres::types::Type,
         raw: &'a [u8],
     ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        let mut raw = raw.into_iter().cloned().rev().collect::<Vec<_>>();
-
-        // three fields...
-        assert_eq!(take!(raw, 4), &[0, 0, 0, 3]);
-        // ...starting with a TIMESPAN WITH TIMEZONE...
-        let timestamp_oid: u32 = 1184;
-        assert_eq!(
-            take!(raw, 4),
-            &[
-                0,
-                0,
-                (timestamp_oid >> 4) as u8,
-                (timestamp_oid & 255) as u8
-            ]
-        );
-        let length = take_u32!(raw) as usize;
-        let start = DateTime::<Utc>::from_sql(
-            &Type::from_oid(timestamp_oid).unwrap(),
-            &take!(raw, length),
-        )?;
-        dbg!(start);
-
-        let payment_oid: u32 = todo!("Payment OID");
-
         todo!()
     }
 
