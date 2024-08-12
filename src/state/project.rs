@@ -160,8 +160,28 @@ mod tests {
     use std::{thread, time::Duration};
 
     use chrono::{TimeDelta, Utc};
+    use tokio_postgres::Client;
 
     use crate::state::{Money, NotFoundError, Payment, Project, ProjectId, State};
+
+    fn get_test_client() -> Client {
+        dotenv().expect("Couldn't load .env!");
+        let password = env::var("TESTPASSWORD").expect("Couldn't get the password from .env!");
+        let host = env::var("TESTHOST").expect("Couldn't get the host from .env!");
+        let user = env::var("TESTUSER").expect("Couldn't get the user from .env!");
+        let dbname = env::var("TESTDBNAME").expect("Couldn't get the dbname from .env!");
+        let (client, connection) = tokio_postgres::connect(
+            format!("host={host} user={user} password={password} dbname={dbname}").as_str(),
+            NoTls,
+        )
+        .await?;
+        tokio::spawn(async move {
+            if let Err(e) = connection.await {
+                eprintln!("Connection nerror: {}", e);
+            }
+        });
+        client
+    }
 
     #[test]
     fn project_equality() {
@@ -184,7 +204,7 @@ mod tests {
 
     #[test]
     fn state_creates_many_projects() {
-        let mut state = State::new();
+        let mut state = State::new(get_test_client());
         for i in 0..10000 {
             state.create_project(
                 String::from("Example Project"),
@@ -195,7 +215,7 @@ mod tests {
 
     #[test]
     fn state_create_single_project() {
-        let mut state = State::new();
+        let mut state = State::new(get_test_client());
         let id = state.create_project(
             String::from("Example Project"),
             String::from("Example Description"),
@@ -231,7 +251,7 @@ mod tests {
     fn state_delete_project() {
         let now = Utc::now();
 
-        let mut state = State::new();
+        let mut state = State::new(get_test_client());
         let project_0 = state.create_project(
             String::from("Project 0"),
             String::from("The first project, which will have two work slices."),

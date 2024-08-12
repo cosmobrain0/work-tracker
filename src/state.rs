@@ -7,25 +7,28 @@ mod work_slice;
 use chrono::{DateTime, Utc};
 pub use payment::*;
 pub use project::*;
+use tokio_postgres::Client;
 pub use work_slice::*;
 
 #[derive(Debug)]
 pub struct State {
-    previous_project_id: u64,
-    previous_work_slice_id: u64,
-    projects: Vec<Project>,
+    client: Client,
 }
 impl State {
-    pub fn new() -> Self {
-        Self {
-            previous_project_id: 0,
-            previous_work_slice_id: 0,
-            projects: Vec::new(),
-        }
+    pub fn new(client: Client) -> Self {
+        Self { client }
     }
 
-    pub fn projects(&self) -> Vec<ProjectId> {
-        self.projects.iter().map(|x| x.id()).collect()
+    pub async fn projects(&self) -> Result<Vec<ProjectId>, Box<dyn Error + Send + Sync>> {
+        let rows = self
+            .client
+            .query("SELECT project_id FROM project", &[])
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(|x| x.get(0))
+            .map(|x: i32| ProjectId::new(x as u64))
+            .collect())
     }
 
     pub fn start_work_now(
