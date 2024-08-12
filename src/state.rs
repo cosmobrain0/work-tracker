@@ -31,18 +31,53 @@ impl State {
             .collect())
     }
 
-    pub fn start_work_now(
+    pub async fn start_work_now(
         &mut self,
         payment: Payment,
         id: ProjectId,
     ) -> Result<(), WorkStartNowError> {
-        let work_id = self.create_work_slice_id();
-        let Some(project) = self.get_project_mut(id) else {
+        // check if the project exists
+        let project_exists = self
+            .client
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM project WHERE project_id=$1)",
+                &[&(id.0 as i32)],
+            )
+            .await
+            .map_err(|_| WorkStartNowError::DatabaseError)?;
+
+        // if it doesn't, ERROR: invalid project ID
+        if project_exists.get(0) {
             return Err(WorkStartNowError::InvalidProjectId);
-        };
-        project
-            .start_work_now(payment, work_id)
-            .map_err(|_| WorkStartNowError::AlreadyStarted)
+        }
+
+        // check if the project already has an incomplete work slice attached to it
+        let project_has_incomplete_work_slice: bool = self.client.query_one(
+            "SELECT EXISTS(SELECT 1 FROM work_slice WHERE completion IS NULL AND project_id = $1)",
+            &[&(id.0 as i32)],
+        ).await.map_err(|_| WorkStartNowError::DatabaseError)?.get(0);
+
+        // if it does, ERROR: already started work
+        if project_has_incomplete_work_slice {
+            return Err(WorkStartNowError::AlreadyStarted);
+        }
+
+        // create a new incomplete work slice and add it to the work_slice table
+        let now = Utc::now();
+        let _ = self
+            .client
+            .query(
+                "INSERT INTO work_slice (start, payment, project_id) VALUES ($1, ROW($2, $3), $4)",
+                &[
+                    &now,
+                    &payment.is_hourly(),
+                    &payment.rate().0,
+                    &(id.0 as i32),
+                ],
+            )
+            .await
+            .map_err(|_| WorkStartNowError::DatabaseError)?;
+        Ok(())
     }
 
     pub fn end_work_now(&mut self, id: ProjectId) -> Result<(), WorkEndNowError> {
@@ -169,6 +204,7 @@ impl State {
 pub enum WorkStartNowError {
     AlreadyStarted,
     InvalidProjectId,
+    DatabaseError,
 }
 impl Display for WorkStartNowError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

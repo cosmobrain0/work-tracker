@@ -20,7 +20,7 @@ impl Display for CompleteWorkError {
 impl Error for CompleteWorkError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ProjectId(u64);
+pub struct ProjectId(pub(crate) u64);
 impl ProjectId {
     pub fn new(id: u64) -> Self {
         Self(id)
@@ -213,19 +213,25 @@ mod tests {
         }
     }
 
-    #[test]
-    fn state_create_single_project() {
+    #[tokio::test]
+    async fn state_create_single_project() {
         let mut state = State::new(get_test_client());
         let id = state.create_project(
             String::from("Example Project"),
             String::from("Example Description"),
         );
 
-        let Ok(()) = state.start_work_now(Payment::Hourly(Money::new(800)), id) else {
+        let Ok(()) = state
+            .start_work_now(Payment::Hourly(Money::new(800)), id)
+            .await
+        else {
             panic!("Couldn't start work!");
         };
 
-        let Err(WorkStartError) = state.start_work_now(Payment::Hourly(Money::new(500)), id) else {
+        let Err(WorkStartError) = state
+            .start_work_now(Payment::Hourly(Money::new(500)), id)
+            .await
+        else {
             panic!("Shouldn't be able to start work!");
         };
 
