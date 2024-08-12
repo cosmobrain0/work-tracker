@@ -1,7 +1,10 @@
 use chrono::{DateTime, TimeDelta, Utc};
 use tokio_postgres::types::{Field, FromSql, Kind, Type};
 
-use crate::state::payment::{MoneyExact, Payment};
+use crate::{
+    pop_data, pop_u32,
+    state::payment::{MoneyExact, Payment},
+};
 
 pub enum WorkSlice {
     Complete(CompleteWorkSlice),
@@ -49,7 +52,44 @@ impl<'a> FromSql<'a> for IncompleteWorkSlice {
         ty: &tokio_postgres::types::Type,
         raw: &'a [u8],
     ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        todo!()
+        let mut raw = raw.to_vec();
+        let field_count = pop_u32(&mut raw);
+        assert_eq!(field_count, 3);
+
+        let (start_oid, start) = pop_data(&mut raw);
+        let (payment_oid, payment) = pop_data(&mut raw);
+        let (id_oid, id) = pop_data(&mut raw);
+
+        assert_eq!(start_oid, 1184);
+        assert_eq!(payment_oid, 32783);
+        assert_eq!(id_oid, 23);
+
+        let start = DateTime::<Utc>::from_sql(
+            &Type::new(
+                "TIMESTAMPTZ".to_string(),
+                1184,
+                Kind::Simple,
+                "pg_catalog".to_string(),
+            ),
+            &start[..],
+        )?;
+
+        let payment = Payment::from_sql(
+            &Type::new(
+                "payment".to_string(),
+                32783,
+                Kind::Composite(vec![
+                    Field::new("hourly".to_string(), Type::from_oid(16).unwrap()),
+                    Field::new("money".to_string(), Type::from_oid(23).unwrap()),
+                ]),
+                "public".to_string(),
+            ),
+            &payment[..],
+        )?;
+
+        let id = i32::from_sql(&Type::from_oid(23).unwrap(), &id[..])? as u64;
+
+        Ok(Self::new(start, payment, WorkSliceId(id)).unwrap())
     }
 
     fn accepts(ty: &tokio_postgres::types::Type) -> bool {

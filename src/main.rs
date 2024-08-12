@@ -8,6 +8,8 @@ use tokio_postgres::{
 use dotenvy::dotenv;
 use std::env;
 
+use crate::state::Payment;
+
 fn get_u32(raw: &[u8]) -> u32 {
     u32::from_be_bytes(raw[0..4].try_into().unwrap())
 }
@@ -79,11 +81,13 @@ async fn main() -> Result<(), Error> {
             eprintln!("Connection nerror: {}", e);
         }
     });
-    let result = client.query("SELECT id, person FROM example", &[]).await?;
+    let result = client
+        .query("SELECT job_name, payment FROM example_payment", &[])
+        .await?;
     for row in result {
-        let id: i32 = row.get(0);
-        let person: Test = row.get(1);
-        dbg!(id, person);
+        let job_name: String = row.get(0);
+        let payment: Payment = row.get(1);
+        dbg!(job_name, payment);
     }
     Ok(())
 }
