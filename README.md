@@ -34,20 +34,16 @@ and then to figure out how to store "state" permanently, ideally in a database.
 ## Database
 
 project:
-- project_id (int) (primary)
+- project_id (serial) (primary)
 - name (varchar)
 - description (varchar)
 
 work_slice:
-- work_id (int) (primary)
+- work_id (serial) (primary)
 - start (timestamp with time zone)
 - end (timestamp with time zone OR null) (end is null means incomplete)
-- payment_hourly (bool)
-- payment_value (int)
-
-project_work:
-- project_id (int) (foreign project) (composite primary)
-- work_id (int) (foreign work_slice) (composite primary)
+- payment (hourly bool, money int)
+- project_id (int) (foreign project)
 
 views: TODO
 
