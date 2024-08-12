@@ -42,6 +42,8 @@ work_slice:
 - work_id (int) (primary)
 - start (timestamp with time zone)
 - end (timestamp with time zone OR null) (end is null means incomplete)
+- payment_hourly (bool)
+- payment_value (int)
 
 project_work:
 - project_id (int) (foreign project) (composite primary)
