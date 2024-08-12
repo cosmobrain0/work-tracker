@@ -27,21 +27,25 @@ We then need a "state" and a "message-response" system:
 - the "state" stores all projects, work-slices and their payments
 - the state can be asked questions or given requests ("messages")
 - the state will respond to questions with answers
-- the state will respond to requests with success/falure
+- the state will respond to requests with success/failure
 
 and then to figure out how to store "state" permanently, ideally in a database.
 
 ## Database
 
-Money - bigint
-Payment - bool hourly, bigint value
-incomplete_work_slice
-complete_work_slice
-project
+project:
+- project_id (int) (primary)
+- name (varchar)
+- description (varchar)
 
-tables:
-Projects (project project)
-WorkSlices (slice complete_work_slice, project_id bigint)
+work_slice:
+- work_id (int) (primary)
+- start (timestamp with time zone)
+- end (timestamp with time zone OR null) (end is null means incomplete)
+
+project_work:
+- project_id (int) (foreign project) (composite primary)
+- work_id (int) (foreign work_slice) (composite primary)
 
 views: TODO
 
