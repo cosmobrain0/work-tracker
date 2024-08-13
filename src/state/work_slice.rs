@@ -1,31 +1,27 @@
 use chrono::{DateTime, TimeDelta, Utc};
-use tokio_postgres::types::{Field, FromSql, Kind, Type};
 
-use crate::{
-    pop_data, pop_u32,
-    state::payment::{MoneyExact, Payment},
-};
+use crate::state::payment::{MoneyExact, Payment};
 
 pub enum WorkSlice {
-    Complete(CompleteWorkSlice),
-    Incomplete(IncompleteWorkSlice),
+    Complete(Box<dyn CompleteWorkSlice>),
+    Incomplete(Box<dyn IncompleteWorkSlice>),
 }
 impl WorkSlice {
-    pub fn as_complete(self) -> Option<CompleteWorkSlice> {
+    pub fn as_complete(self) -> Option<Box<dyn CompleteWorkSlice>> {
         match self {
             Self::Complete(x) => Some(x),
             Self::Incomplete(_) => None,
         }
     }
 
-    pub fn as_incomplete(self) -> Option<IncompleteWorkSlice> {
+    pub fn as_incomplete(self) -> Option<Box<dyn IncompleteWorkSlice>> {
         match self {
             Self::Complete(_) => None,
             Self::Incomplete(x) => Some(x),
         }
     }
 
-    pub fn unwrap(self) -> CompleteWorkSlice {
+    pub fn unwrap(self) -> Box<dyn CompleteWorkSlice> {
         match self {
             Self::Complete(x) => x,
             Self::Incomplete(x) => panic!("Trying to unwrap a WorkSlice::Incomplete! {:#?}", x),
@@ -34,33 +30,39 @@ impl WorkSlice {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct WorkSliceId(pub(crate) u64);
+pub struct WorkSliceId(pub(super) u64);
 impl WorkSliceId {
     pub(super) fn new(id: u64) -> Self {
         Self(id)
     }
 }
 
+pub trait IncompleteWorkSlice {
+    fn start(&self) -> DateTime<Utc>;
+    fn payment(&self) -> Payment;
+    fn id(&self) -> WorkSliceId;
+}
+
 #[derive(Debug, PartialOrd, Ord)]
-pub struct IncompleteWorkSlice {
+pub struct LocalIncompleteWorkSlice {
     start: DateTime<Utc>,
     payment: Payment,
     id: WorkSliceId,
 }
-impl IncompleteWorkSlice {
-    pub fn start(&self) -> DateTime<Utc> {
+impl IncompleteWorkSlice for LocalIncompleteWorkSlice {
+    fn start(&self) -> DateTime<Utc> {
         self.start
     }
 
-    pub fn payment(&self) -> Payment {
+    fn payment(&self) -> Payment {
         self.payment
     }
 
-    pub fn id(&self) -> WorkSliceId {
+    fn id(&self) -> WorkSliceId {
         self.id
     }
 }
-impl IncompleteWorkSlice {
+impl LocalIncompleteWorkSlice {
     pub(super) fn new(start: DateTime<Utc>, payment: Payment, id: WorkSliceId) -> Option<Self> {
         if start <= Utc::now() {
             Some(Self { start, payment, id })
@@ -70,57 +72,68 @@ impl IncompleteWorkSlice {
     }
 
     pub(super) fn complete(self, end: DateTime<Utc>) -> WorkSlice {
-        CompleteWorkSlice::new(self, end)
+        LocalCompleteWorkSlice::new(self, end)
     }
 
-    pub(super) fn complete_now(self) -> CompleteWorkSlice {
-        CompleteWorkSlice::new(self, Utc::now()).unwrap()
+    pub(super) fn complete_now(self) -> Box<dyn CompleteWorkSlice> {
+        Box::new(
+            LocalCompleteWorkSlice::new(self, Utc::now()).unwrap() as Box<dyn CompleteWorkSlice>
+        )
     }
 
     pub(super) fn payment_so_far(&self) -> Option<MoneyExact> {
         Some(self.payment.calculate(Utc::now() - self.start))
     }
 }
-impl PartialEq for IncompleteWorkSlice {
+impl PartialEq for dyn IncompleteWorkSlice {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.id() == other.id()
     }
 }
-impl Eq for IncompleteWorkSlice {}
+impl Eq for dyn IncompleteWorkSlice {}
 
+pub trait CompleteWorkSlice {
+    fn start(&self) -> DateTime<Utc>;
+
+    fn payment(&self) -> Payment;
+
+    fn id(&self) -> WorkSliceId;
+
+    fn end(&self) -> DateTime<Utc>;
+}
 #[derive(Debug, PartialOrd, Ord)]
-pub struct CompleteWorkSlice {
+pub struct LocalCompleteWorkSlice {
     start: DateTime<Utc>,
     end: DateTime<Utc>,
     payment: Payment,
     id: WorkSliceId,
 }
-impl CompleteWorkSlice {
-    pub fn start(&self) -> DateTime<Utc> {
+impl CompleteWorkSlice for LocalCompleteWorkSlice {
+    fn start(&self) -> DateTime<Utc> {
         self.start
     }
 
-    pub fn payment(&self) -> Payment {
+    fn payment(&self) -> Payment {
         self.payment
     }
 
-    pub fn id(&self) -> WorkSliceId {
+    fn id(&self) -> WorkSliceId {
         self.id
     }
 
-    pub fn end(&self) -> DateTime<Utc> {
+    fn end(&self) -> DateTime<Utc> {
         self.end
     }
 }
-impl CompleteWorkSlice {
-    pub(super) fn new(work_slice: IncompleteWorkSlice, end: DateTime<Utc>) -> WorkSlice {
+impl LocalCompleteWorkSlice {
+    pub(super) fn new(work_slice: Box<dyn IncompleteWorkSlice>, end: DateTime<Utc>) -> WorkSlice {
         if end > work_slice.start {
-            WorkSlice::Complete(Self {
+            WorkSlice::Complete(Box::new(Self {
                 end,
                 start: work_slice.start,
                 payment: work_slice.payment,
                 id: work_slice.id,
-            })
+            }) as Box<dyn CompleteWorkSlice>)
         } else {
             WorkSlice::Incomplete(work_slice)
         }
@@ -134,12 +147,12 @@ impl CompleteWorkSlice {
         self.payment.calculate(self.duration())
     }
 }
-impl PartialEq for CompleteWorkSlice {
+impl PartialEq for dyn CompleteWorkSlice {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.id() == other.id()
     }
 }
-impl Eq for CompleteWorkSlice {}
+impl Eq for dyn CompleteWorkSlice {}
 
 #[cfg(test)]
 mod tests {

@@ -6,7 +6,7 @@ use tokio_postgres::types::{FromSql, Type};
 use crate::{pop_data, pop_u32};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct Money(pub(crate) u32);
+pub struct Money(pub(super) u32);
 impl Money {
     pub fn new(money: u32) -> Self {
         Self(money)
@@ -107,11 +107,11 @@ impl Payment {
         }
     }
 
-    pub(crate) fn is_hourly(&self) -> bool {
+    pub(super) fn is_hourly(&self) -> bool {
         matches!(self, Payment::Hourly(_))
     }
 
-    pub(crate) fn rate(&self) -> Money {
+    pub(super) fn rate(&self) -> Money {
         match self {
             Payment::Hourly(money) => *money,
             Payment::Fixed(money) => *money,

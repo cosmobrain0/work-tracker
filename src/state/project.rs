@@ -20,7 +20,7 @@ impl Display for CompleteWorkError {
 impl Error for CompleteWorkError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ProjectId(pub(crate) u64);
+pub struct ProjectId(pub(super) u64);
 impl ProjectId {
     pub fn new(id: u64) -> Self {
         Self(id)
