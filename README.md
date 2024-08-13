@@ -70,3 +70,65 @@ and there are others which just take a ProjectId and fetch
 and return new data. Gonna need a good naming scheme.
 
 Maybe these database functions should be in a new ProjectDatabase struct?
+
+Ah, the solution is a trait, ofc:
+```
+// find a better name for this trait
+trait Project {
+  fn name(&self) -> Result<String, Box<dyn Error + Send + Sync>>;
+  // and other getters, for any "fields" or "related data",
+  // as both of those are the same thing in this context
+  // since we don't know that an type which impls this trait
+  // will even have these as fields
+
+  fn start_work_now(&mut self) -> Result<(), Box<dyn Error + ...>>;
+  // and other operations.
+}
+
+impl Project for LocalProject {
+  fn name(&self) -> Result<...> {
+    Ok(self.name.to_string())
+  }
+  // and other getters, which are always Ok().
+
+  fn start_work_now(&mut self) -> Result<...> {
+    self.start = IncompleteWorkSlice::new(...);
+  }
+  // and other operations, which mutate this object
+}
+
+impl Project for DatabaseProject {
+  fn name(&self) -> Result<...> {
+    // database query, not mutating self
+  }
+  // and other getters
+
+  fn start_work_now(&mut self) -> Result<...> {
+    // database query, not mutating self
+  }
+  // and other oeprations.
+}
+```
+
+So `State` stores `Vec<DatabaseProject>` for now
+and if we wanted caching we could also have a `Vec<LocalProject>`.
+and these can be joined and operated on together,
+as a `Vec<&mut dyn Project>` or `Vec<Box<dyn Project>>`.
+
+actually, even better:
+`State` is actually `State<T: Project>`.
+And it stores `Vec<T>` for projects.
+and so you can have a local `State<LocalProject>` or a non-local `State<DatabaseProject>`.
+
+Just have to figure out how to make the other types work with this,
+and how to implement caching.
+
+Caching is inherently related to the database,
+so `DatabaseProject` has a bunch of fields which are `(Option<T>, DateTime<Utc>)`
+and if it's `(Some(x), not-long-before-now)` then the `x` is returned,
+and otherwise a query is made and `not-long-before-now` becomes `Utc::now()`.
+
+The `State` needs to be able to tell its owner a lot about projects.
+It needs to be able to return a `Vec<CompleteWorkSlice>` and an `Option<IncompleteWorkSlice>`
+to provide complete information.
+So those need to be traits, like the `Project`, hiding two pub(crate) types for each trait.
