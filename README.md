@@ -47,3 +47,26 @@ work_slice:
 
 views: TODO
 
+
+## So what are these Project and WorkSlice structs?
+
+They can be used to locally store data about projects,
+in some sort of cache or as the result of a query,
+to be processed and displayed to the user.
+
+So it makes sense to make them immutable,
+with public getters and setters for *every* field.
+
+they currently have associated functions for changing state,
+which I want `State` to be responsible for.
+They also have associated functions for getting related data,
+which maybe ought to be pub(crate) for State to use,
+and maybe they ought to get data from the database.
+
+This might make it a little confusing,
+as there will be some methods which take &self and return
+locally stored data,
+and there are others which just take a ProjectId and fetch
+and return new data. Gonna need a good naming scheme.
+
+Maybe these database functions should be in a new ProjectDatabase struct?

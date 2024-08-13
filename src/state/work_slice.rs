@@ -34,7 +34,7 @@ impl WorkSlice {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct WorkSliceId(u64);
+pub struct WorkSliceId(pub(crate) u64);
 impl WorkSliceId {
     pub(super) fn new(id: u64) -> Self {
         Self(id)

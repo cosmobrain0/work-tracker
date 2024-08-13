@@ -38,16 +38,12 @@ impl State {
     ) -> Result<(), WorkStartNowError> {
         // check if the project exists
         let project_exists = self
-            .client
-            .query_one(
-                "SELECT EXISTS(SELECT 1 FROM project WHERE project_id=$1)",
-                &[&(id.0 as i32)],
-            )
+            .project_exists(id)
             .await
             .map_err(|_| WorkStartNowError::DatabaseError)?;
 
         // if it doesn't, ERROR: invalid project ID
-        if project_exists.get(0) {
+        if !project_exists {
             return Err(WorkStartNowError::InvalidProjectId);
         }
 
@@ -80,13 +76,53 @@ impl State {
         Ok(())
     }
 
-    pub fn end_work_now(&mut self, id: ProjectId) -> Result<(), WorkEndNowError> {
-        let Some(project) = self.get_project_mut(id) else {
+    async fn project_exists(&mut self, id: ProjectId) -> Result<bool, tokio_postgres::Error> {
+        self.client
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM project WHERE project_id=$1)",
+                &[&(id.0 as i32)],
+            )
+            .await
+            .map(|x| x.get(0))
+    }
+
+    pub async fn end_work_now(&mut self, id: ProjectId) -> Result<(), WorkEndNowError> {
+        // check if the project exists
+        let project_exists = self
+            .project_exists(id)
+            .await
+            .map_err(|_| WorkEndNowError::DatabaseError)?;
+        // if the project doesn't exist, ERROR: invalid project ID
+        if !project_exists {
+            return Err(WorkEndNowError::InvalidProjectId);
+        }
+        // check if there is any current work, getting its ID
+        let incomplete_work_id = self
+            .client
+            .query_opt(
+                "SELECT work_id FROM work_slice WHERE completion IS NULL AND project_id = $1",
+                &[&(id.0 as i32)],
+            )
+            .await
+            .map_err(|_| WorkEndNowError::DatabaseError)?
+            .map(|x| x.get(0))
+            .map(|x: i32| WorkSliceId::new(x as u64));
+
+        // if there isn't, ERROR: no current work
+        if incomplete_work_id.is_none() {
             return Err(WorkEndNowError::NoCurrentWork);
-        };
-        project
-            .complete_work_now()
-            .map_err(|_| WorkEndNowError::NoCurrentWork)
+        }
+        let incomplete_work_id = incomplete_work_id.unwrap();
+        // if there is, end it now
+        let now = Utc::now();
+        self.client
+            .query(
+                "UPDATE work_slice SET completion = $1 WHERE work_id = $2",
+                &[&now, &(incomplete_work_id.0 as i32)],
+            )
+            .await
+            .map_err(|_| WorkEndNowError::DatabaseError)
+            .map(|_| ())
     }
 
     pub fn start_work(
@@ -217,6 +253,7 @@ impl Error for WorkStartNowError {}
 pub enum WorkEndNowError {
     NoCurrentWork,
     InvalidProjectId,
+    DatabaseError,
 }
 impl Display for WorkEndNowError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
