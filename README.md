@@ -132,3 +132,7 @@ The `State` needs to be able to tell its owner a lot about projects.
 It needs to be able to return a `Vec<CompleteWorkSlice>` and an `Option<IncompleteWorkSlice>`
 to provide complete information.
 So those need to be traits, like the `Project`, hiding two pub(crate) types for each trait.
+
+Even better idea: instead of a `State<T>`, we have a `State::new(config: impl Config)`,
+where `Config` has a method which creates a new project and returns it as an `impl ProjectTrait`,
+and all the `State` methods work by interacting with `Project`s
