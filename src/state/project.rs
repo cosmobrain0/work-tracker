@@ -23,9 +23,10 @@ pub trait Project {
         &self,
         start: DateTime<Utc>,
         payment: Payment,
-    ) -> Result<WorkSliceId, Error>;
+        id: WorkSliceId,
+    ) -> Result<(), Error>;
     async fn complete_work(&self, end: DateTime<Utc>) -> Result<WorkSliceId, Error>;
-    async fn start_work_now(&self, payment: Payment) -> Result<WorkSliceId, Error> {
+    async fn start_work_now(&self, payment: Payment, id: WorkSliceId) -> Result<(), Error> {
         self.start_work(Utc::now(), payment).await
     }
     async fn complete_work_now(&self) -> Result<WorkSliceId, Error> {
@@ -111,13 +112,12 @@ impl Project for LocalProject {
         &mut self,
         start: DateTime<Utc>,
         payment: Payment,
-    ) -> Result<WorkSliceId, Error> {
+        id: WorkSliceId,
+    ) -> Result<(), Error> {
         if self.current_slice.is_none() {
-            if let Some(incomplete_work) =
-                LocalIncompleteWorkSlice::new(start, payment, self.new_work_slice_id())
-            {
+            if let Some(incomplete_work) = LocalIncompleteWorkSlice::new(start, payment, id) {
                 self.current_slice = Some(Box::new(incomplete_work) as Error);
-                Ok(self.current_slice.unwrap().id())
+                Ok(())
             } else {
                 Err(Box::new(WorkStartError::InvalidStartTime))
             }

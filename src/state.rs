@@ -23,112 +23,93 @@ impl<T: Config> State<T> {
     }
 
     pub async fn projects(&self) -> Result<Vec<ProjectId>, Box<dyn Error + Send + Sync>> {
-        self.config.projects().await
+        self.config.project_ids().await
     }
 
     pub async fn start_work_now(
         &mut self,
         payment: Payment,
         id: ProjectId,
-    ) -> Result<(), WorkStartNowError> {
-        self.config.project
-    }
-
-    async fn project_exists(&mut self, id: ProjectId) -> Result<bool, tokio_postgres::Error> {
-        self.client
-            .query_one(
-                "SELECT EXISTS(SELECT 1 FROM project WHERE project_id=$1)",
-                &[&(id.0 as i32)],
-            )
-            .await
-            .map(|x| x.get(0))
-    }
-
-    pub async fn end_work_now(&mut self, id: ProjectId) -> Result<(), WorkEndNowError> {
-        // check if the project exists
-        let project_exists = self
-            .project_exists(id)
-            .await
-            .map_err(|_| WorkEndNowError::DatabaseError)?;
-        // if the project doesn't exist, ERROR: invalid project ID
-        if !project_exists {
-            return Err(WorkEndNowError::InvalidProjectId);
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        match self.config.project_from_id(id).await? {
+            Some(project) => {
+                project
+                    .start_work_now(payment, self.config.new_work_slice_id())
+                    .await?
+            }
+            None => Err(Box::new(WorkStartNowError::InvalidProjectId)),
         }
-        // check if there is any current work, getting its ID
-        let incomplete_work_id = self
-            .client
-            .query_opt(
-                "SELECT work_id FROM work_slice WHERE completion IS NULL AND project_id = $1",
-                &[&(id.0 as i32)],
-            )
-            .await
-            .map_err(|_| WorkEndNowError::DatabaseError)?
-            .map(|x| x.get(0))
-            .map(|x: i32| WorkSliceId::new(x as u64));
-
-        // if there isn't, ERROR: no current work
-        if incomplete_work_id.is_none() {
-            return Err(WorkEndNowError::NoCurrentWork);
-        }
-        let incomplete_work_id = incomplete_work_id.unwrap();
-        // if there is, end it now
-        let now = Utc::now();
-        self.client
-            .query(
-                "UPDATE work_slice SET completion = $1 WHERE work_id = $2",
-                &[&now, &(incomplete_work_id.0 as i32)],
-            )
-            .await
-            .map_err(|_| WorkEndNowError::DatabaseError)
-            .map(|_| ())
     }
 
-    pub fn start_work(
+    async fn project_exists(
+        &mut self,
+        id: ProjectId,
+    ) -> Result<bool, Box<dyn Error + Send + Sync>> {
+        Ok(self
+            .config
+            .project_ids()
+            .await?
+            .iter()
+            .find(|x| x.id() == id)
+            .is_some())
+    }
+
+    pub async fn end_work_now(
+        &mut self,
+        id: ProjectId,
+    ) -> Result<WorkSliceId, Box<dyn Error + Send + Sync>> {
+        match self.config.project_from_id(id).await? {
+            Some(project) => project.complete_work_now().await,
+            None => Err(Box::new(InvalidProjectId) as Error),
+        }
+    }
+
+    pub async fn start_work(
         &mut self,
         start: DateTime<Utc>,
         payment: Payment,
         id: ProjectId,
-    ) -> Result<(), WorkStartError> {
-        let work_id = self.create_work_slice_id();
-        let Some(project) = self.get_project_mut(id) else {
-            return Err(WorkStartError::InvalidProjectId);
-        };
-        let Some(work) = IncompleteWorkSlice::new(start, payment, work_id) else {
-            return Err(WorkStartError::InvalidStartTime);
-        };
-        project
-            .start_work(work)
-            .map_err(|_| WorkStartError::AlreadyStarted)
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let work_id = self.config.new_work_slice_id();
+        match self
+            .config
+            .project_from_id(id)
+            .await?
+            .map(|x| x.start_work(start, payment, id))
+        {
+            Some(x) => x.await,
+            None => Err(Box::new(InvalidProjectId) as Box<dyn Error + Send + Sync>),
+        }
     }
 
-    pub fn end_work(&mut self, end: DateTime<Utc>, id: ProjectId) -> Result<(), WorkEndError> {
-        let Some(project) = self.get_project_mut(id) else {
-            return Err(WorkEndError::InvalidProjectId);
-        };
-        project.complete_work(end).map_err(|e| match e {
-            CompleteWorkError::NoWorkToComplete => WorkEndError::NoWorkToComplete,
-            CompleteWorkError::EndTimeTooEarly => WorkEndError::EndTimeTooEarly,
-        })
+    pub async fn end_work(
+        &mut self,
+        id: ProjectId,
+        end: DateTime<Utc>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        match self.config.project_from_id(id).await? {
+            Some(project) => project.complete_work(end).await,
+            None => Err(Box::new(InvalidProjectId) as Error),
+        }
     }
 
-    pub fn work_slices(
+    pub async fn work_slices(
         &self,
         id: ProjectId,
-    ) -> Result<(Vec<&CompleteWorkSlice>, Option<&IncompleteWorkSlice>), InvalidProjectId> {
-        let Some(project) = self.get_project(id) else {
-            return Err(InvalidProjectId);
-        };
-        Ok((project.complete_work_slices(), project.current_work_slice()))
-    }
-
-    fn create_work_slice_id(&mut self) -> WorkSliceId {
-        if self.previous_work_slice_id == u64::MAX {
-            panic!("Can't generate a new work slice id!");
+    ) -> Result<
+        (
+            Vec<&dyn CompleteWorkSlice>,
+            Option<&dyn IncompleteWorkSlice>,
+        ),
+        Box<dyn Error + Send + Sync>,
+    > {
+        match self.config.project_from_id(id).await? {
+            Some(project) => (
+                project.complete_work_slices().await?,
+                project.incomplete_work_slice().await?,
+            ),
+            None => InvalidProjectId,
         }
-        let id = self.previous_work_slice_id + 1;
-        self.previous_work_slice_id = id;
-
-        WorkSliceId::new(id)
     }
 
     pub fn create_project(&mut self, name: String, description: String) -> ProjectId {
@@ -144,53 +125,11 @@ impl<T: Config> State<T> {
         ProjectId::new(id)
     }
 
-    fn get_project_mut(&mut self, id: ProjectId) -> Option<&mut Project> {
-        self.projects.iter_mut().find(|x| x.id() == id)
-    }
-
-    fn get_project(&self, id: ProjectId) -> Option<&Project> {
-        self.projects.iter().find(|x| x.id() == id)
-    }
-
-    pub fn delete_project(&mut self, project_id: ProjectId) -> Result<Project, InvalidProjectId> {
-        match self
-            .projects
-            .iter()
-            .enumerate()
-            .find(|(i, x)| x.id() == project_id)
-            .map(|(i, _)| i)
-        {
-            Some(i) => Ok(self.projects.remove(i)),
-            None => Err(InvalidProjectId),
-        }
-    }
-
-    pub fn delete_work_slice_from_project(
+    pub async fn delete_project(
         &mut self,
         project_id: ProjectId,
-        work_slice_id: WorkSliceId,
-    ) -> Result<WorkSlice, NotFoundError> {
-        let Some(project) = self.get_project_mut(project_id) else {
-            return Err(NotFoundError::ProjectNotFound);
-        };
-        project
-            .delete_work_slice(work_slice_id)
-            .map_err(|_| NotFoundError::WorkSliceNotFound)
-    }
-
-    pub fn delete_work_slice(
-        &mut self,
-        work_slice_id: WorkSliceId,
-    ) -> Result<WorkSlice, WorkSliceNotFoundError> {
-        for project_id in self.projects.iter().map(|x| x.id()).collect::<Vec<_>>() {
-            match self.delete_work_slice_from_project(project_id, work_slice_id) {
-                Ok(slice) => {
-                    return Ok(slice);
-                }
-                Err(_) => (),
-            }
-        }
-        Err(WorkSliceNotFoundError)
+    ) -> Result<bool, InvalidProjectId> {
+        self.config.remove_project(project_id).await
     }
 }
 

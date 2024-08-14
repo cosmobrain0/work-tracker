@@ -20,6 +20,7 @@ pub trait Config {
             .collect()
     }
     async fn remove_project(&self, id: ProjectId) -> Result<bool, Box<dyn Error + Send + Sync>>;
+    async fn new_work_slice_id(&mut self) -> Result<(), Box<dyn Error + Send + Sync>>;
 }
 pub trait ConfigSync: Config {
     fn create_new_project_sync(
