@@ -1,5 +1,6 @@
 use std::{error::Error, fmt::Display};
 
+mod config;
 mod payment;
 mod project;
 mod work_slice;
@@ -10,25 +11,19 @@ pub use project::*;
 use tokio_postgres::Client;
 pub use work_slice::*;
 
+use self::config::Config;
+
 #[derive(Debug)]
-pub struct State {
-    client: Client,
+pub struct State<T: Config> {
+    config: T,
 }
-impl State {
-    pub fn new(client: Client) -> Self {
-        Self { client }
+impl<T: Config> State<T> {
+    pub fn new(config: T) -> Self {
+        Self { config }
     }
 
     pub async fn projects(&self) -> Result<Vec<ProjectId>, Box<dyn Error + Send + Sync>> {
-        let rows = self
-            .client
-            .query("SELECT project_id FROM project", &[])
-            .await?;
-        Ok(rows
-            .into_iter()
-            .map(|x| x.get(0))
-            .map(|x: i32| ProjectId::new(x as u64))
-            .collect())
+        self.config.projects().await
     }
 
     pub async fn start_work_now(
@@ -36,44 +31,7 @@ impl State {
         payment: Payment,
         id: ProjectId,
     ) -> Result<(), WorkStartNowError> {
-        // check if the project exists
-        let project_exists = self
-            .project_exists(id)
-            .await
-            .map_err(|_| WorkStartNowError::DatabaseError)?;
-
-        // if it doesn't, ERROR: invalid project ID
-        if !project_exists {
-            return Err(WorkStartNowError::InvalidProjectId);
-        }
-
-        // check if the project already has an incomplete work slice attached to it
-        let project_has_incomplete_work_slice: bool = self.client.query_one(
-            "SELECT EXISTS(SELECT 1 FROM work_slice WHERE completion IS NULL AND project_id = $1)",
-            &[&(id.0 as i32)],
-        ).await.map_err(|_| WorkStartNowError::DatabaseError)?.get(0);
-
-        // if it does, ERROR: already started work
-        if project_has_incomplete_work_slice {
-            return Err(WorkStartNowError::AlreadyStarted);
-        }
-
-        // create a new incomplete work slice and add it to the work_slice table
-        let now = Utc::now();
-        let _ = self
-            .client
-            .query(
-                "INSERT INTO work_slice (start, payment, project_id) VALUES ($1, ROW($2, $3), $4)",
-                &[
-                    &now,
-                    &payment.is_hourly(),
-                    &payment.rate().0,
-                    &(id.0 as i32),
-                ],
-            )
-            .await
-            .map_err(|_| WorkStartNowError::DatabaseError)?;
-        Ok(())
+        self.config.project
     }
 
     async fn project_exists(&mut self, id: ProjectId) -> Result<bool, tokio_postgres::Error> {

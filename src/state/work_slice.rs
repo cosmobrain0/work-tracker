@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use chrono::{DateTime, TimeDelta, Utc};
 
 use crate::state::payment::{MoneyExact, Payment};
@@ -37,10 +39,10 @@ impl WorkSliceId {
     }
 }
 
-pub trait IncompleteWorkSlice {
-    fn start(&self) -> DateTime<Utc>;
-    fn payment(&self) -> Payment;
-    fn id(&self) -> WorkSliceId;
+pub trait IncompleteWorkSlice: std::fmt::Debug {
+    async fn start(&self) -> Result<DateTime<Utc>, Box<dyn Error + Send + Sync>>;
+    async fn payment(&self) -> Result<Payment, Box<dyn Error + Send + Sync>>;
+    async fn id(&self) -> Result<WorkSliceId, Box<dyn Error + Send + Sync>>;
 }
 
 #[derive(Debug, PartialOrd, Ord)]
@@ -50,16 +52,16 @@ pub struct LocalIncompleteWorkSlice {
     id: WorkSliceId,
 }
 impl IncompleteWorkSlice for LocalIncompleteWorkSlice {
-    fn start(&self) -> DateTime<Utc> {
-        self.start
+    async fn start(&self) -> Result<DateTime<Utc>, Box<dyn Error + Send + Sync>> {
+        Ok(self.start)
     }
 
-    fn payment(&self) -> Payment {
-        self.payment
+    async fn payment(&self) -> Result<Payment, Box<dyn Error + Send + Sync>> {
+        Ok(self.payment)
     }
 
-    fn id(&self) -> WorkSliceId {
-        self.id
+    async fn id(&self) -> Result<WorkSliceId, Box<dyn Error + Send + Sync>> {
+        Ok(self.id)
     }
 }
 impl LocalIncompleteWorkSlice {
@@ -92,14 +94,14 @@ impl PartialEq for dyn IncompleteWorkSlice {
 }
 impl Eq for dyn IncompleteWorkSlice {}
 
-pub trait CompleteWorkSlice {
-    fn start(&self) -> DateTime<Utc>;
+pub trait CompleteWorkSlice: std::fmt::Debug {
+    async fn start(&self) -> Result<DateTime<Utc>, Box<dyn Error + Send + Sync>>;
 
-    fn payment(&self) -> Payment;
+    async fn payment(&self) -> Result<Payment, Box<dyn Error + Send + Sync>>;
 
-    fn id(&self) -> WorkSliceId;
+    async fn id(&self) -> Result<WorkSliceId, Box<dyn Error + Send + Sync>>;
 
-    fn end(&self) -> DateTime<Utc>;
+    async fn end(&self) -> Result<DateTime<Utc>, Box<dyn Error + Send + Sync>>;
 }
 #[derive(Debug, PartialOrd, Ord)]
 pub struct LocalCompleteWorkSlice {
@@ -109,20 +111,20 @@ pub struct LocalCompleteWorkSlice {
     id: WorkSliceId,
 }
 impl CompleteWorkSlice for LocalCompleteWorkSlice {
-    fn start(&self) -> DateTime<Utc> {
-        self.start
+    async fn start(&self) -> Result<DateTime<Utc>, Box<dyn Error + Send + Sync>> {
+        Ok(self.start)
     }
 
-    fn payment(&self) -> Payment {
-        self.payment
+    async fn payment(&self) -> Result<Payment, Box<dyn Error + Send + Sync>> {
+        Ok(self.payment)
     }
 
-    fn id(&self) -> WorkSliceId {
-        self.id
+    async fn id(&self) -> Result<WorkSliceId, Box<dyn Error + Send + Sync>> {
+        Ok(self.id)
     }
 
-    fn end(&self) -> DateTime<Utc> {
-        self.end
+    async fn end(&self) -> Result<DateTime<Utc>, Box<dyn Error + Send + Sync>> {
+        Ok(self.end)
     }
 }
 impl LocalCompleteWorkSlice {
