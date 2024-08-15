@@ -2,8 +2,6 @@ use std::{fmt::Display, iter::Sum, ops::Add};
 
 use chrono::TimeDelta;
 
-use crate::{pop_data, pop_u32};
-
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Money(u32);
 impl Money {

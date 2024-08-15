@@ -1,9 +1,6 @@
 use chrono::{DateTime, TimeDelta, Utc};
 
-use crate::{
-    pop_data, pop_u32,
-    state::payment::{MoneyExact, Payment},
-};
+use crate::state::payment::{MoneyExact, Payment};
 
 pub enum WorkSlice {
     Complete(CompleteWorkSlice),
