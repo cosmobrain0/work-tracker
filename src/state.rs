@@ -1,10 +1,10 @@
-use std::{error::Error, fmt::Display};
-
+mod errors;
 mod payment;
 mod project;
 mod work_slice;
 
 use chrono::{DateTime, Utc};
+pub use errors::*;
 pub use payment::*;
 pub use project::*;
 pub use work_slice::*;
@@ -161,83 +161,3 @@ impl State {
         Err(WorkSliceNotFoundError)
     }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WorkStartNowError {
-    AlreadyStarted,
-    InvalidProjectId,
-}
-impl Display for WorkStartNowError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#?}", self)
-    }
-}
-impl Error for WorkStartNowError {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WorkEndNowError {
-    NoCurrentWork,
-    InvalidProjectId,
-}
-impl Display for WorkEndNowError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#?}", self)
-    }
-}
-impl Error for WorkEndNowError {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NotFoundError {
-    ProjectNotFound,
-    WorkSliceNotFound,
-}
-impl Display for NotFoundError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#?}", self)
-    }
-}
-impl Error for NotFoundError {}
-
-#[derive(Debug, Clone, Copy)]
-pub struct WorkSliceNotFoundError;
-impl Display for WorkSliceNotFoundError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#?}", self)
-    }
-}
-impl Error for WorkSliceNotFoundError {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WorkStartError {
-    AlreadyStarted,
-    InvalidProjectId,
-    InvalidStartTime,
-}
-impl Display for WorkStartError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#?}", self)
-    }
-}
-impl Error for WorkStartError {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WorkEndError {
-    EndTimeTooEarly,
-    NoWorkToComplete,
-    InvalidProjectId,
-}
-impl Display for WorkEndError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#?}", self)
-    }
-}
-impl Error for WorkEndError {}
-
-#[derive(Debug, Clone, Copy)]
-pub struct InvalidProjectId;
-impl Display for InvalidProjectId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#?}", self)
-    }
-}
-impl Error for InvalidProjectId {}

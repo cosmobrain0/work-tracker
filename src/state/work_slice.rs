@@ -1,5 +1,4 @@
 use chrono::{DateTime, TimeDelta, Utc};
-use tokio_postgres::types::{Field, FromSql, Kind, Type};
 
 use crate::{
     pop_data, pop_u32,

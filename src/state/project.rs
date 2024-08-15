@@ -7,17 +7,7 @@ use crate::{
     state::work_slice::{CompleteWorkSlice, IncompleteWorkSlice, WorkSlice, WorkSliceId},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CompleteWorkError {
-    NoWorkToComplete,
-    EndTimeTooEarly,
-}
-impl Display for CompleteWorkError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#?}", self)
-    }
-}
-impl Error for CompleteWorkError {}
+use super::CompleteWorkError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ProjectId(u64);
