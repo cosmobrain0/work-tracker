@@ -59,12 +59,18 @@ impl Project {
         }
     }
 
-    pub fn complete_work_slices(&self) -> Vec<&CompleteWorkSlice> {
-        self.work_slices.iter().collect()
+    pub fn complete_work_slices(&self) -> impl Iterator<Item = &CompleteWorkSlice> {
+        self.work_slices.iter()
     }
 
     pub fn current_work_slice(&self) -> Option<&IncompleteWorkSlice> {
         self.current_slice.as_ref()
+    }
+
+    pub fn total_payment(&self) -> MoneyExact {
+        self.complete_work_slices()
+            .map(|x| x.calculate_payment())
+            .sum()
     }
 
     pub fn add_slice(&mut self, work_slice: CompleteWorkSlice) {
