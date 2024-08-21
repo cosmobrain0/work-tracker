@@ -7,6 +7,7 @@ use crate::{
 
 use super::CompleteWorkError;
 
+/// Represents the id of a project
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ProjectId(u64);
 impl ProjectId {
@@ -15,6 +16,8 @@ impl ProjectId {
     }
 }
 
+/// Represents a "project" - basically a group of work slices,
+/// which can only have one current work slice at a time.
 #[derive(Debug)]
 pub struct Project {
     name: String,
@@ -36,12 +39,6 @@ impl Project {
     pub fn description(&self) -> &String {
         &self.description
     }
-    pub fn work_slices(&self) -> Vec<&CompleteWorkSlice> {
-        self.work_slices.iter().collect()
-    }
-    pub fn current_slice(&self) -> Option<&IncompleteWorkSlice> {
-        self.current_slice.as_ref()
-    }
     pub fn id(&self) -> ProjectId {
         self.id
     }
@@ -57,24 +54,27 @@ impl Project {
         }
     }
 
+    /// Only returns the complete work slices in this project,
+    /// ignoring the current one, if there is any.
     pub fn complete_work_slices(&self) -> impl Iterator<Item = &CompleteWorkSlice> {
         self.work_slices.iter()
     }
 
+    /// Returns the current, incomplete work slice, if it exists.
     pub fn current_work_slice(&self) -> Option<&IncompleteWorkSlice> {
         self.current_slice.as_ref()
     }
 
+    /// Returns the amount of money earned by the complete work slices in this project.
+    /// ignoring the current work slice if there is one.
     pub fn total_payment(&self) -> MoneyExact {
         self.complete_work_slices()
             .map(|x| x.calculate_payment())
             .sum()
     }
 
-    pub fn add_slice(&mut self, work_slice: CompleteWorkSlice) {
-        self.work_slices.push(work_slice);
-    }
-
+    /// Tries to set the given work slice to the current work slice of this project,
+    /// but fails if there is already a current work slice.
     pub fn start_work(&mut self, current_work: IncompleteWorkSlice) -> Result<(), ()> {
         if self.current_slice.is_none() {
             self.current_slice = Some(current_work);
@@ -84,15 +84,9 @@ impl Project {
         }
     }
 
-    pub fn start_work_now(&mut self, payment: Payment, id: WorkSliceId) -> Result<(), ()> {
-        if self.current_slice.is_none() {
-            self.current_slice = Some(IncompleteWorkSlice::new(Utc::now(), payment, id).unwrap());
-            Ok(())
-        } else {
-            Err(())
-        }
-    }
-
+    /// Attempts to complete the current work slice,
+    /// but fails if there is no current work to complete,
+    /// and also fails if the end time provided is after the start time.
     pub fn complete_work(&mut self, end: DateTime<Utc>) -> Result<(), CompleteWorkError> {
         match self.current_slice.take() {
             Some(current_work) => match current_work.complete(end) {
@@ -110,23 +104,10 @@ impl Project {
         }
     }
 
-    pub fn complete_work_now(&mut self) -> Result<(), ()> {
-        match self.current_slice.take() {
-            Some(x) => {
-                self.work_slices.push(x.complete_now());
-                Ok(())
-            }
-            None => Err(()),
-        }
-    }
-
-    pub fn payment(&self) -> MoneyExact {
-        self.work_slices
-            .iter()
-            .map(|slice| slice.calculate_payment())
-            .sum()
-    }
-
+    /// Attempts to delete the specified work slice from this project,
+    /// whether it's complete or incomplete,
+    /// and returns true if it is found (and deleted)
+    /// or false otherwise.
     pub fn delete_work_slice(&mut self, work_slice_id: WorkSliceId) -> bool {
         if self
             .current_slice
@@ -153,6 +134,8 @@ impl Project {
     }
 }
 impl Project {
+    /// Returns a reference to the work slice with the given ID,
+    /// if it is in this project.
     pub fn work_slice_from_id(&self, id: WorkSliceId) -> Option<WorkSlice<'_>> {
         self.work_slices
             .iter()

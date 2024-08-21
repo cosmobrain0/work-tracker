@@ -303,13 +303,10 @@ mod tests {
             (tests.pop().unwrap().0.unwrap(), monies[0]),
         ];
         for (test, payment) in tests {
-            match (
-                test.payment_so_far().map(|x| x.as_pence()),
+            assert!(almost_equal(
+                test.calculate_payment_so_far().as_pence(),
                 payment.as_pence(),
-            ) {
-                (None, x) => panic!("Should have gotten {:#?}, but got None", x),
-                (Some(a), b) => assert!(almost_equal(a, b)),
-            }
+            ));
 
             assert!(almost_equal(
                 test.complete_now().calculate_payment().as_pence(),

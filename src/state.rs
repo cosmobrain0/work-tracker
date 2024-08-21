@@ -76,7 +76,8 @@ impl State {
                 (
                     x.id(),
                     x.complete_work_slices().any(|x| x.id() == work_slice_id)
-                        || x.current_slice().is_some_and(|x| x.id() == work_slice_id),
+                        || x.current_work_slice()
+                            .is_some_and(|x| x.id() == work_slice_id),
                 )
             })
             .find(|(_, found)| *found)
