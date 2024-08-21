@@ -98,12 +98,12 @@ impl Project {
     pub fn complete_work(&mut self, end: DateTime<Utc>) -> Result<(), CompleteWorkError> {
         match self.current_slice.take() {
             Some(current_work) => match current_work.complete(end) {
-                WorkSlice::Complete(complete) => {
+                Ok(complete) => {
                     self.work_slices.push(complete);
                     self.current_slice = None;
                     Ok(())
                 }
-                WorkSlice::Incomplete(incomplete) => {
+                Err(incomplete) => {
                     self.current_slice = Some(incomplete);
                     Err(CompleteWorkError::EndTimeTooEarly)
                 }
@@ -129,13 +129,14 @@ impl Project {
             .sum()
     }
 
-    pub fn delete_work_slice(&mut self, work_slice_id: WorkSliceId) -> Result<WorkSlice, ()> {
+    pub fn delete_work_slice<'a>(&'a mut self, work_slice_id: WorkSliceId) -> bool {
         if self
             .current_slice
             .as_ref()
             .is_some_and(|x| x.id() == work_slice_id)
         {
-            Ok(WorkSlice::Incomplete(self.current_slice.take().unwrap()))
+            self.current_slice = None;
+            true
         } else {
             match self
                 .work_slices
@@ -144,9 +145,20 @@ impl Project {
                 .find(|(i, x)| x.id() == work_slice_id)
                 .map(|(i, x)| i)
             {
-                Some(i) => Ok(WorkSlice::Complete(self.work_slices.remove(i))),
-                None => Err(()),
+                Some(i) => {
+                    self.work_slices.remove(i);
+                    true
+                }
+                None => false,
             }
         }
+    }
+}
+impl Project {
+    pub fn work_slice_from_id<'a>(&'a self, id: WorkSliceId) -> Option<WorkSlice<'a>> {
+        self.work_slices
+            .iter()
+            .map(|x| WorkSlice::Complete(x))
+            .find(|x| x.id() == id)
     }
 }

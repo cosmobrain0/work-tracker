@@ -2,29 +2,64 @@ use chrono::{DateTime, TimeDelta, Utc};
 
 use crate::state::payment::{MoneyExact, Payment};
 
-pub enum WorkSlice {
-    Complete(CompleteWorkSlice),
-    Incomplete(IncompleteWorkSlice),
+pub enum WorkSlice<'a> {
+    Complete(&'a CompleteWorkSlice),
+    Incomplete(&'a IncompleteWorkSlice),
 }
-impl WorkSlice {
-    pub fn as_complete(self) -> Option<CompleteWorkSlice> {
+impl<'a> WorkSlice<'a> {
+    pub fn as_complete(self) -> Option<&'a CompleteWorkSlice> {
         match self {
             Self::Complete(x) => Some(x),
             Self::Incomplete(_) => None,
         }
     }
 
-    pub fn as_incomplete(self) -> Option<IncompleteWorkSlice> {
+    pub fn as_incomplete(self) -> Option<&'a IncompleteWorkSlice> {
         match self {
             Self::Complete(_) => None,
             Self::Incomplete(x) => Some(x),
         }
     }
 
-    pub fn unwrap(self) -> CompleteWorkSlice {
+    pub fn unwrap(self) -> &'a CompleteWorkSlice {
         match self {
             Self::Complete(x) => x,
             Self::Incomplete(x) => panic!("Trying to unwrap a WorkSlice::Incomplete! {:#?}", x),
+        }
+    }
+
+    pub fn start(&self) -> DateTime<Utc> {
+        match self {
+            WorkSlice::Complete(x) => x.start(),
+            WorkSlice::Incomplete(x) => x.start(),
+        }
+    }
+
+    pub fn duration(&self) -> TimeDelta {
+        match self {
+            WorkSlice::Complete(x) => x.duration(),
+            WorkSlice::Incomplete(x) => x.duration(),
+        }
+    }
+
+    pub fn payment_rate(&self) -> Payment {
+        match self {
+            WorkSlice::Complete(x) => x.payment(),
+            WorkSlice::Incomplete(x) => x.payment(),
+        }
+    }
+
+    pub fn total_payment(&self) -> MoneyExact {
+        match self {
+            WorkSlice::Complete(x) => x.calculate_payment(),
+            WorkSlice::Incomplete(x) => x.calculate_payment_so_far(),
+        }
+    }
+
+    pub fn id(&self) -> WorkSliceId {
+        match self {
+            WorkSlice::Complete(x) => x.id(),
+            WorkSlice::Incomplete(x) => x.id(),
         }
     }
 }
@@ -65,7 +100,18 @@ impl IncompleteWorkSlice {
         }
     }
 
-    pub(super) fn complete(self, end: DateTime<Utc>) -> WorkSlice {
+    pub fn duration(&self) -> TimeDelta {
+        Utc::now() - self.start
+    }
+
+    pub fn calculate_payment_so_far(&self) -> MoneyExact {
+        self.payment.calculate(self.duration())
+    }
+
+    pub(super) fn complete(
+        self,
+        end: DateTime<Utc>,
+    ) -> Result<CompleteWorkSlice, IncompleteWorkSlice> {
         CompleteWorkSlice::new(self, end)
     }
 
@@ -104,21 +150,24 @@ impl CompleteWorkSlice {
         self.id
     }
 
-    pub fn end(&self) -> DateTime<Utc> {
+    pub fn completion(&self) -> DateTime<Utc> {
         self.end
     }
 }
 impl CompleteWorkSlice {
-    pub(super) fn new(work_slice: IncompleteWorkSlice, end: DateTime<Utc>) -> WorkSlice {
+    pub(super) fn new(
+        work_slice: IncompleteWorkSlice,
+        end: DateTime<Utc>,
+    ) -> Result<CompleteWorkSlice, IncompleteWorkSlice> {
         if end > work_slice.start {
-            WorkSlice::Complete(Self {
+            Ok(Self {
                 end,
                 start: work_slice.start,
                 payment: work_slice.payment,
                 id: work_slice.id,
             })
         } else {
-            WorkSlice::Incomplete(work_slice)
+            Err(work_slice)
         }
     }
 

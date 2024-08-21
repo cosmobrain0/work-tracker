@@ -134,8 +134,12 @@ impl State {
         work_slice_id: WorkSliceId,
     ) -> bool {
         self.project_from_id_mut(project_id)
-            .map(|project| project.delete_work_slice(work_slice_id).ok())
-            .flatten()
-            .is_some()
+            .map(|project| project.delete_work_slice(work_slice_id))
+            .is_some_and(|x| x)
+    }
+}
+impl State {
+    pub fn work_slice_from_id<'a>(&'a self, id: WorkSliceId) -> Option<WorkSlice<'a>> {
+        self.projects.iter().find_map(|x| x.work_slice_from_id(id))
     }
 }
