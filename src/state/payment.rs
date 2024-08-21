@@ -1,9 +1,6 @@
 use std::{fmt::Display, iter::Sum, ops::Add};
 
 use chrono::TimeDelta;
-use tokio_postgres::types::{FromSql, Type};
-
-use crate::{pop_data, pop_u32};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Money(u32);
@@ -56,7 +53,7 @@ impl Sum<MoneyExact> for MoneyExact {
 
 impl From<Money> for MoneyExact {
     fn from(value: Money) -> Self {
-        return MoneyExact(value.0.into());
+        MoneyExact(value.0.into())
     }
 }
 
@@ -64,7 +61,7 @@ impl Add<Money> for Money {
     type Output = Money;
 
     fn add(self, rhs: Money) -> Self::Output {
-        return Money(self.0 + rhs.0);
+        Money(self.0 + rhs.0)
     }
 }
 
@@ -80,7 +77,7 @@ impl Add<Money> for MoneyExact {
     type Output = MoneyExact;
 
     fn add(self, rhs: Money) -> Self::Output {
-        return MoneyExact(self.0 + f64::from(rhs.0));
+        MoneyExact(self.0 + f64::from(rhs.0))
     }
 }
 
@@ -88,7 +85,7 @@ impl Add<MoneyExact> for Money {
     type Output = MoneyExact;
 
     fn add(self, rhs: MoneyExact) -> Self::Output {
-        return MoneyExact(f64::from(self.0) + rhs.0);
+        MoneyExact(f64::from(self.0) + rhs.0)
     }
 }
 
@@ -105,36 +102,6 @@ impl Payment {
             ),
             Payment::Fixed(money) => money.into(),
         }
-    }
-}
-impl<'a> FromSql<'a> for Payment {
-    fn from_sql(
-        ty: &tokio_postgres::types::Type,
-        raw: &'a [u8],
-    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        let mut raw = raw.to_vec();
-        let field_count = pop_u32(&mut raw);
-        assert_eq!(field_count, 2);
-
-        let (hourly_oid, hourly) = pop_data(&mut raw);
-        let (money_oid, money) = pop_data(&mut raw);
-
-        assert_eq!(hourly_oid, 16);
-        assert_eq!(money_oid, 23);
-
-        let hourly = bool::from_sql(&Type::from_oid(16).unwrap(), &hourly[..])?;
-        let money = i32::from_sql(&Type::from_oid(23).unwrap(), &money[..])? as u32;
-        let money = Money::new(money);
-
-        Ok(if hourly {
-            Self::Hourly(money)
-        } else {
-            Self::Fixed(money)
-        })
-    }
-
-    fn accepts(ty: &tokio_postgres::types::Type) -> bool {
-        ty.name() == "payment"
     }
 }
 
