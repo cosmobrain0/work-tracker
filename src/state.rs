@@ -6,7 +6,7 @@ mod payment;
 mod project;
 mod work_slice;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
 pub use errors::*;
@@ -51,8 +51,7 @@ impl State {
                         .filter_map(|x| x.map(IncompleteWorkSlice::id)),
                 )
             })
-            .map(|x| unsafe { x.map(|x| x.inner()) })
-            .flatten()
+            .flat_map(|x| unsafe { x.map(|x| x.inner()) })
             .max()
             .unwrap_or(0);
 
@@ -66,8 +65,7 @@ impl State {
             hashmap.clear();
             for id in projects
                 .iter()
-                .map(|x| x.complete_work_slices())
-                .flatten()
+                .flat_map(|x| x.complete_work_slices())
                 .map(CompleteWorkSlice::id)
                 .map(|x| x.inner())
             {
