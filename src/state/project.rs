@@ -1,5 +1,3 @@
-use std::{error::Error, fmt::Display};
-
 use chrono::{DateTime, Utc};
 
 use crate::{
@@ -129,7 +127,7 @@ impl Project {
             .sum()
     }
 
-    pub fn delete_work_slice<'a>(&'a mut self, work_slice_id: WorkSliceId) -> bool {
+    pub fn delete_work_slice(&mut self, work_slice_id: WorkSliceId) -> bool {
         if self
             .current_slice
             .as_ref()
@@ -142,8 +140,8 @@ impl Project {
                 .work_slices
                 .iter()
                 .enumerate()
-                .find(|(i, x)| x.id() == work_slice_id)
-                .map(|(i, x)| i)
+                .find(|(_, x)| x.id() == work_slice_id)
+                .map(|(i, _)| i)
             {
                 Some(i) => {
                     self.work_slices.remove(i);
@@ -155,10 +153,10 @@ impl Project {
     }
 }
 impl Project {
-    pub fn work_slice_from_id<'a>(&'a self, id: WorkSliceId) -> Option<WorkSlice<'a>> {
+    pub fn work_slice_from_id(&self, id: WorkSliceId) -> Option<WorkSlice<'_>> {
         self.work_slices
             .iter()
-            .map(|x| WorkSlice::Complete(x))
+            .map(WorkSlice::Complete)
             .find(|x| x.id() == id)
     }
 }

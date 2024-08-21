@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod errors;
 mod payment;
 mod project;
@@ -44,7 +46,7 @@ impl State {
     }
 }
 impl State {
-    pub fn all_project_ids<'a>(&'a self) -> impl Iterator<Item = ProjectId> + 'a {
+    pub fn all_project_ids(&self) -> impl Iterator<Item = ProjectId> + '_ {
         self.projects.iter().map(|x| x.id())
     }
 
@@ -56,11 +58,11 @@ impl State {
         self.projects.iter_mut().find(|x| x.id() == id)
     }
 
-    pub fn all_projects<'a>(&'a self) -> impl Iterator<Item = &Project> + 'a {
+    pub fn all_projects(&self) -> impl Iterator<Item = &Project> + '_ {
         self.projects.iter()
     }
 
-    fn all_projects_mut<'a>(&'a mut self) -> impl Iterator<Item = &mut Project> + 'a {
+    fn all_projects_mut(&mut self) -> impl Iterator<Item = &mut Project> + '_ {
         self.projects.iter_mut()
     }
 
@@ -77,7 +79,7 @@ impl State {
                         || x.current_slice().is_some_and(|x| x.id() == work_slice_id),
                 )
             })
-            .find(|(id, found)| *found)
+            .find(|(_, found)| *found)
             .map(|(id, _)| id)
     }
 }
@@ -110,7 +112,7 @@ impl State {
         let index = self
             .all_project_ids()
             .enumerate()
-            .find(|(i, project_id)| *project_id == id)
+            .find(|(_, project_id)| *project_id == id)
             .map(|(i, _)| i);
         match index {
             Some(i) => {
@@ -139,7 +141,7 @@ impl State {
     }
 }
 impl State {
-    pub fn work_slice_from_id<'a>(&'a self, id: WorkSliceId) -> Option<WorkSlice<'a>> {
+    pub fn work_slice_from_id(&self, id: WorkSliceId) -> Option<WorkSlice<'_>> {
         self.projects.iter().find_map(|x| x.work_slice_from_id(id))
     }
 }

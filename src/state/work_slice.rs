@@ -7,14 +7,14 @@ pub enum WorkSlice<'a> {
     Incomplete(&'a IncompleteWorkSlice),
 }
 impl<'a> WorkSlice<'a> {
-    pub fn as_complete(self) -> Option<&'a CompleteWorkSlice> {
+    pub fn complete(self) -> Option<&'a CompleteWorkSlice> {
         match self {
             Self::Complete(x) => Some(x),
             Self::Incomplete(_) => None,
         }
     }
 
-    pub fn as_incomplete(self) -> Option<&'a IncompleteWorkSlice> {
+    pub fn incomplete(self) -> Option<&'a IncompleteWorkSlice> {
         match self {
             Self::Complete(_) => None,
             Self::Incomplete(x) => Some(x),

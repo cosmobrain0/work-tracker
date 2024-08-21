@@ -53,7 +53,7 @@ impl Sum<MoneyExact> for MoneyExact {
 
 impl From<Money> for MoneyExact {
     fn from(value: Money) -> Self {
-        return MoneyExact(value.0.into());
+        MoneyExact(value.0.into())
     }
 }
 
@@ -61,7 +61,7 @@ impl Add<Money> for Money {
     type Output = Money;
 
     fn add(self, rhs: Money) -> Self::Output {
-        return Money(self.0 + rhs.0);
+        Money(self.0 + rhs.0)
     }
 }
 
@@ -77,7 +77,7 @@ impl Add<Money> for MoneyExact {
     type Output = MoneyExact;
 
     fn add(self, rhs: Money) -> Self::Output {
-        return MoneyExact(self.0 + f64::from(rhs.0));
+        MoneyExact(self.0 + f64::from(rhs.0))
     }
 }
 
@@ -85,7 +85,7 @@ impl Add<MoneyExact> for Money {
     type Output = MoneyExact;
 
     fn add(self, rhs: MoneyExact) -> Self::Output {
-        return MoneyExact(f64::from(self.0) + rhs.0);
+        MoneyExact(f64::from(self.0) + rhs.0)
     }
 }
 
