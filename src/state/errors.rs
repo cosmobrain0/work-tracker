@@ -74,6 +74,8 @@ pub enum DataToCompleteWorkSliceError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataToProjectError {
     CompleteWorkSlice(DataToCompleteWorkSliceError),
+    /// There was an issue with the incomplete work slice:
+    /// it's start time was after `Utc::now()`
     IncompleteWorkSlice,
 }
 
