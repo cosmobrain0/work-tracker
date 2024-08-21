@@ -53,6 +53,14 @@ pub enum WorkEndError {
     NoWorkToComplete,
     InvalidProjectId,
 }
+impl From<CompleteWorkError> for WorkEndError {
+    fn from(value: CompleteWorkError) -> Self {
+        match value {
+            CompleteWorkError::NoWorkToComplete => Self::NoWorkToComplete,
+            CompleteWorkError::EndTimeTooEarly => Self::EndTimeTooEarly,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct InvalidProjectId;
