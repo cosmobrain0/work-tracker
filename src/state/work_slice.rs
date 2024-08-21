@@ -9,6 +9,8 @@ pub enum WorkSlice<'a> {
     Incomplete(&'a IncompleteWorkSlice),
 }
 impl<'a> WorkSlice<'a> {
+    /// Returns the reference to the complete work slice that this holds,
+    /// if it holds one.
     pub fn complete(self) -> Option<&'a CompleteWorkSlice> {
         match self {
             Self::Complete(x) => Some(x),
@@ -16,6 +18,8 @@ impl<'a> WorkSlice<'a> {
         }
     }
 
+    /// Returns the reference to the incomplete work slice that this holds,
+    /// if it holds one.
     pub fn incomplete(self) -> Option<&'a IncompleteWorkSlice> {
         match self {
             Self::Complete(_) => None,
@@ -23,6 +27,8 @@ impl<'a> WorkSlice<'a> {
         }
     }
 
+    /// Returns the reference to the complete work slice that this holds,
+    /// or panics if it doesn't.
     pub fn unwrap(self) -> &'a CompleteWorkSlice {
         match self {
             Self::Complete(x) => x,
@@ -30,6 +36,7 @@ impl<'a> WorkSlice<'a> {
         }
     }
 
+    /// Gets the start time for this work slice.
     pub fn start(&self) -> DateTime<Utc> {
         match self {
             WorkSlice::Complete(x) => x.start(),
@@ -37,6 +44,9 @@ impl<'a> WorkSlice<'a> {
         }
     }
 
+    /// Gets the duration of this work slice.
+    /// This returns the time between `Utc::now()` and the start of the work slice,
+    /// if the work slice is incomplete.
     pub fn duration(&self) -> TimeDelta {
         match self {
             WorkSlice::Complete(x) => x.duration(),
@@ -44,6 +54,7 @@ impl<'a> WorkSlice<'a> {
         }
     }
 
+    /// Returns the method of calculating payment for this work slice.
     pub fn payment_rate(&self) -> Payment {
         match self {
             WorkSlice::Complete(x) => x.payment(),
@@ -51,6 +62,8 @@ impl<'a> WorkSlice<'a> {
         }
     }
 
+    /// Returns the total payment required for this work slice
+    /// or the total payment required *so far* for incomplete work slices.
     pub fn total_payment(&self) -> MoneyExact {
         match self {
             WorkSlice::Complete(x) => x.calculate_payment(),
@@ -58,6 +71,7 @@ impl<'a> WorkSlice<'a> {
         }
     }
 
+    /// Returns the ID of this work slice
     pub fn id(&self) -> WorkSliceId {
         match self {
             WorkSlice::Complete(x) => x.id(),
@@ -66,6 +80,7 @@ impl<'a> WorkSlice<'a> {
     }
 }
 
+/// Represents the id of a work slice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WorkSliceId(u64);
 impl WorkSliceId {
@@ -74,6 +89,8 @@ impl WorkSliceId {
     }
 }
 
+/// Represents a work slice which has started
+/// but has not ended.
 #[derive(Debug, PartialOrd, Ord)]
 pub struct IncompleteWorkSlice {
     start: DateTime<Utc>,
@@ -81,19 +98,25 @@ pub struct IncompleteWorkSlice {
     id: WorkSliceId,
 }
 impl IncompleteWorkSlice {
+    /// Returns the start time of this work slice.
     pub fn start(&self) -> DateTime<Utc> {
         self.start
     }
 
+    /// Returns the method of calculating payment of this work slice.
+    /// See `calculate_payment_so_far` to calculate the amount of money earned so far.
     pub fn payment(&self) -> Payment {
         self.payment
     }
 
+    /// Returns the id of this work slice.
     pub fn id(&self) -> WorkSliceId {
         self.id
     }
 }
 impl IncompleteWorkSlice {
+    /// Constructs a new incomplete work slice, if `start <= Utc::now()`
+    /// and fails otherwise.
     pub(super) fn new(start: DateTime<Utc>, payment: Payment, id: WorkSliceId) -> Option<Self> {
         if start <= Utc::now() {
             Some(Self { start, payment, id })
@@ -102,14 +125,19 @@ impl IncompleteWorkSlice {
         }
     }
 
+    /// Returns how much time has passed since the start of this work slice.
     pub fn duration(&self) -> TimeDelta {
         Utc::now() - self.start
     }
 
+    /// Calculates how much money has been earned by this work slice so far.
+    /// See `payment` to get the method of calculating payment for this work slice.
     pub fn calculate_payment_so_far(&self) -> MoneyExact {
         self.payment.calculate(self.duration())
     }
 
+    /// Attempts to make a complete work slice out of this one, consuming it,
+    /// and returns this work slice if that fails because the end time is before the start time.
     pub(super) fn complete(
         self,
         end: DateTime<Utc>,
@@ -117,12 +145,13 @@ impl IncompleteWorkSlice {
         CompleteWorkSlice::new(self, end)
     }
 
+    /// Attempts to make a complete work slice out of this one, ending at Utc::now(),
+    /// consuming this incomplete work slice,
+    /// and returns the completed work slice.
+    /// # Panics
+    /// panics if the work slice is ended at the same time as when it starts.
     pub(super) fn complete_now(self) -> CompleteWorkSlice {
         CompleteWorkSlice::new(self, Utc::now()).unwrap()
-    }
-
-    pub(super) fn payment_so_far(&self) -> Option<MoneyExact> {
-        Some(self.payment.calculate(Utc::now() - self.start))
     }
 }
 impl PartialEq for IncompleteWorkSlice {
@@ -132,6 +161,8 @@ impl PartialEq for IncompleteWorkSlice {
 }
 impl Eq for IncompleteWorkSlice {}
 
+/// Represents a work slice which has been completed.
+/// Only the `start` of this work slice is guaranteed to not be in the future.
 #[derive(Debug, PartialOrd, Ord)]
 pub struct CompleteWorkSlice {
     start: DateTime<Utc>,
@@ -140,23 +171,32 @@ pub struct CompleteWorkSlice {
     id: WorkSliceId,
 }
 impl CompleteWorkSlice {
+    /// Returns the start time of this work slice.
+    /// This is guaranteed to not be in the future.
     pub fn start(&self) -> DateTime<Utc> {
         self.start
     }
 
+    /// Returns the method of calculating payment of this work slice.
+    /// See `calculate_payment` to get the amount of money earned.
     pub fn payment(&self) -> Payment {
         self.payment
     }
 
+    /// Returns the id of this work slice.
     pub fn id(&self) -> WorkSliceId {
         self.id
     }
 
+    /// Returns the end time of this work slice.
+    /// This is **NOT** guaranteed to not be in the future.
     pub fn completion(&self) -> DateTime<Utc> {
         self.end
     }
 }
 impl CompleteWorkSlice {
+    /// Constructs a complete work slice out of an incomplete one,
+    /// if the end time is later than the start time.
     pub(super) fn new(
         work_slice: IncompleteWorkSlice,
         end: DateTime<Utc>,
@@ -173,10 +213,13 @@ impl CompleteWorkSlice {
         }
     }
 
+    /// Returns the time between the end and the start of this work slice.
     pub fn duration(&self) -> TimeDelta {
         self.end - self.start
     }
 
+    /// Returns the amount of money earned by this work slice.
+    /// See `payment` to get the method of calculating payment.
     pub fn calculate_payment(&self) -> MoneyExact {
         self.payment.calculate(self.duration())
     }
@@ -260,13 +303,10 @@ mod tests {
             (tests.pop().unwrap().0.unwrap(), monies[0]),
         ];
         for (test, payment) in tests {
-            match (
-                test.payment_so_far().map(|x| x.as_pence()),
+            assert!(almost_equal(
+                test.calculate_payment_so_far().as_pence(),
                 payment.as_pence(),
-            ) {
-                (None, x) => panic!("Should have gotten {:#?}, but got None", x),
-                (Some(a), b) => assert!(almost_equal(a, b)),
-            }
+            ));
 
             assert!(almost_equal(
                 test.complete_now().calculate_payment().as_pence(),
