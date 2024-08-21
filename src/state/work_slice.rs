@@ -2,6 +2,8 @@ use chrono::{DateTime, TimeDelta, Utc};
 
 use crate::state::payment::{MoneyExact, Payment};
 
+/// Represents a reference to a work slice
+/// which may or may not be complete
 pub enum WorkSlice<'a> {
     Complete(&'a CompleteWorkSlice),
     Incomplete(&'a IncompleteWorkSlice),
