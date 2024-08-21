@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 
 use crate::{
-    state::payment::{MoneyExact, Payment},
+    state::payment::MoneyExact,
     state::work_slice::{CompleteWorkSlice, IncompleteWorkSlice, WorkSlice, WorkSliceId},
 };
 
@@ -13,6 +13,10 @@ pub struct ProjectId(u64);
 impl ProjectId {
     pub fn new(id: u64) -> Self {
         Self(id)
+    }
+
+    pub unsafe fn inner(&self) -> u64 {
+        self.0
     }
 }
 
@@ -51,6 +55,22 @@ impl Project {
             id,
             work_slices: Vec::new(),
             current_slice: None,
+        }
+    }
+
+    pub(super) fn new_with_slices(
+        name: String,
+        description: String,
+        id: ProjectId,
+        work_slices: Vec<CompleteWorkSlice>,
+        current_slice: Option<IncompleteWorkSlice>,
+    ) -> Self {
+        Self {
+            name,
+            description,
+            id,
+            work_slices,
+            current_slice,
         }
     }
 

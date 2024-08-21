@@ -87,6 +87,10 @@ impl WorkSliceId {
     pub(super) fn new(id: u64) -> Self {
         Self(id)
     }
+
+    pub unsafe fn inner(&self) -> u64 {
+        self.0
+    }
 }
 
 /// Represents a work slice which has started

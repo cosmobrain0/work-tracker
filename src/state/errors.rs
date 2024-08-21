@@ -65,6 +65,27 @@ impl From<CompleteWorkError> for WorkEndError {
 #[derive(Debug, Clone, Copy)]
 pub struct InvalidProjectId;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataToCompleteWorkSliceError {
+    StartTimeAfterNow,
+    EndTimeBeforeStart,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataToProjectError {
+    CompleteWorkSlice(DataToCompleteWorkSliceError),
+    /// There was an issue with the incomplete work slice:
+    /// it's start time was after `Utc::now()`
+    IncompleteWorkSlice,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StateInitError {
+    ProjectLoadError(DataToProjectError),
+    DuplicateProjectId,
+    DuplicateWorkSliceId,
+}
+
 derive_debug_error! {
     CompleteWorkError
     WorkStartNowError
@@ -73,4 +94,6 @@ derive_debug_error! {
     WorkSliceNotFoundError
     WorkStartError
     InvalidProjectId
+    DataToCompleteWorkSliceError
+    DataToProjectError
 }
