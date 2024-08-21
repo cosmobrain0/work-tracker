@@ -2,13 +2,19 @@ use std::{fmt::Display, iter::Sum, ops::Add};
 
 use chrono::TimeDelta;
 
+/// Represents a whole number of pence.
+/// If you want to store fractional components, see `MoneyExact`
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Money(u32);
 impl Money {
+    /// Returns a new instance of `Money`
+    /// with `money` pence.
     pub fn new(money: u32) -> Self {
         Self(money)
     }
 
+    /// Returns the number of pence
+    /// that `self` represents.
     pub fn as_pence(&self) -> u32 {
         self.0
     }
@@ -31,9 +37,14 @@ impl Display for Money {
     }
 }
 
+/// Represents some amount of money.
+/// This can be used to store fractional pence.
+/// If you want perfect precision (with no fractional components), see `Money`
 #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
 pub struct MoneyExact(f64);
 impl MoneyExact {
+    /// Returns a new instance of `MoneyExact` if `money` is non-negative,
+    /// or `None` otherwise.
     pub fn new(money: f64) -> Option<Self> {
         if money >= 0.0 {
             Some(Self(money))
@@ -41,6 +52,9 @@ impl MoneyExact {
             None
         }
     }
+
+    /// Returns the number of pence that this value stores,
+    /// which is guaranteed to be non-negative.
     pub fn as_pence(&self) -> f64 {
         self.0
     }
@@ -89,12 +103,19 @@ impl Add<MoneyExact> for Money {
     }
 }
 
+/// Stores how the payment of a work slice will be calculated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Payment {
+    /// Payment is a fixed amount of money per hour,
+    /// with no rounding (so every second is paid for, even if it's less than one hour)
     Hourly(Money),
+    /// Payment is a fixed amount of money,
+    /// regardless of how long the work slice takes.
     Fixed(Money),
 }
 impl Payment {
+    /// Calculate how much this payment method would pay
+    /// for a work slice with a given duration.
     pub fn calculate(&self, time: TimeDelta) -> MoneyExact {
         match *self {
             Payment::Hourly(hourly) => MoneyExact(
