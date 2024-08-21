@@ -14,6 +14,10 @@ impl ProjectId {
     pub fn new(id: u64) -> Self {
         Self(id)
     }
+
+    pub unsafe fn inner(&self) -> u64 {
+        self.0
+    }
 }
 
 /// Represents a "project" - basically a group of work slices,

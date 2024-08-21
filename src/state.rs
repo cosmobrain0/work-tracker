@@ -22,12 +22,47 @@ pub struct State {
 }
 impl State {
     /// Returns an empty State, which has no projects.
-    pub fn new() -> Self {
-        Self {
-            previous_project_id: 0,
-            previous_work_slice_id: 0,
-            projects: Vec::new(),
+    pub fn new(initial_data: Vec<ProjectData>) -> Option<Self> {
+        let projects: Vec<_> = initial_data
+            .into_iter()
+            .map(ProjectData::into_project)
+            .collect();
+
+        // verify that all projects are valid
+        if let Some(_) = projects.iter().find_map(|x| x.as_ref().err()) {
+            return None;
         }
+        let projects: Vec<_> = projects.into_iter().map(Result::unwrap).collect();
+
+        // find the highest project id
+        let previous_project_id = projects
+            .iter()
+            .map(Project::id)
+            .max()
+            .map(|x| unsafe { x.inner() })
+            .unwrap_or(0);
+
+        // find the highest work slice id
+        let previous_work_slice_id = projects
+            .iter()
+            .map(|x| {
+                let ids = x.complete_work_slices().map(|x| x.id());
+                if let Some(id) = x.current_work_slice().map(|x| x.id()) {
+                    ids.chain([id]).max()
+                } else {
+                    ids.max()
+                }
+            })
+            .map(|x| unsafe { x.map(|x| x.inner()) })
+            .map(|x| x.unwrap_or(0))
+            .max()
+            .unwrap_or(0);
+
+        Some(Self {
+            previous_project_id,
+            previous_work_slice_id,
+            projects,
+        })
     }
 
     /// Creates a new project, and returns its ID.
