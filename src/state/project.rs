@@ -54,6 +54,22 @@ impl Project {
         }
     }
 
+    pub(super) fn new_with_slices(
+        name: String,
+        description: String,
+        id: ProjectId,
+        work_slices: Vec<CompleteWorkSlice>,
+        current_slice: Option<IncompleteWorkSlice>,
+    ) -> Self {
+        Self {
+            name,
+            description,
+            id,
+            work_slices,
+            current_slice,
+        }
+    }
+
     /// Only returns the complete work slices in this project,
     /// ignoring the current one, if there is any.
     pub fn complete_work_slices(&self) -> impl Iterator<Item = &CompleteWorkSlice> {
