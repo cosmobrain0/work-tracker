@@ -65,6 +65,18 @@ impl From<CompleteWorkError> for WorkEndError {
 #[derive(Debug, Clone, Copy)]
 pub struct InvalidProjectId;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataToCompleteWorkSliceError {
+    StartTimeAfterNow,
+    EndTimeBeforeStart,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataToProjectError {
+    CompleteWorkSlice(DataToCompleteWorkSliceError),
+    IncompleteWorkSlice,
+}
+
 derive_debug_error! {
     CompleteWorkError
     WorkStartNowError
@@ -73,4 +85,6 @@ derive_debug_error! {
     WorkSliceNotFoundError
     WorkStartError
     InvalidProjectId
+    DataToCompleteWorkSliceError
+    DataToProjectError
 }

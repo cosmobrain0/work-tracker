@@ -1,6 +1,9 @@
 use chrono::{DateTime, Utc};
 
-use super::{CompleteWorkSlice, IncompleteWorkSlice, Payment, Project, ProjectId, WorkSliceId};
+use super::{
+    CompleteWorkSlice, DataToCompleteWorkSliceError, DataToProjectError, IncompleteWorkSlice,
+    Payment, Project, ProjectId, WorkSliceId,
+};
 
 pub struct IncompleteWorkSliceData {
     pub start: DateTime<Utc>,
@@ -20,13 +23,13 @@ pub struct CompleteWorkSliceData {
     pub id: u64,
 }
 impl CompleteWorkSliceData {
-    pub(super) fn into_work_slice(self) -> Option<CompleteWorkSlice> {
+    pub(super) fn into_work_slice(self) -> Result<CompleteWorkSlice, DataToCompleteWorkSliceError> {
         match IncompleteWorkSlice::new(self.start, self.payment, WorkSliceId::new(self.id)) {
             Some(incomplete) => match CompleteWorkSlice::new(incomplete, self.end) {
-                Ok(complete) => Some(complete),
-                Err(_) => None,
+                Ok(complete) => Ok(complete),
+                Err(_) => Err(DataToCompleteWorkSliceError::EndTimeBeforeStart),
             },
-            None => None,
+            None => Err(DataToCompleteWorkSliceError::StartTimeAfterNow),
         }
     }
 }
@@ -39,28 +42,28 @@ pub struct ProjectData {
     pub id: u64,
 }
 impl ProjectData {
-    pub(super) fn into_project(self) -> Option<Project> {
+    pub(super) fn into_project(self) -> Result<Project, DataToProjectError> {
         let complete: Vec<_> = self
             .work_slices
             .into_iter()
             .map(CompleteWorkSliceData::into_work_slice)
             .collect();
-        if complete.iter().any(Option::is_none) {
-            return None;
+        if let Some(err) = complete.iter().find_map(|x| x.as_ref().err()) {
+            return Err(DataToProjectError::CompleteWorkSlice(*err));
         }
-        let complete = complete.into_iter().map(Option::unwrap).collect();
+        let complete = complete.into_iter().map(Result::unwrap).collect();
 
         let current = match self.current_slice {
             None => None,
             Some(x) => match x.into_work_slice() {
                 Some(x) => Some(x),
                 None => {
-                    return None;
+                    return Err(DataToProjectError::IncompleteWorkSlice);
                 }
             },
         };
 
-        Some(Project::new_with_slices(
+        Ok(Project::new_with_slices(
             self.name,
             self.description,
             ProjectId::new(self.id),
