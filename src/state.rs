@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod changes;
 mod errors;
 mod initial_data;
 mod payment;
@@ -8,6 +9,7 @@ mod work_slice;
 
 use std::collections::HashSet;
 
+pub use changes::*;
 use chrono::{DateTime, Utc};
 pub use errors::*;
 pub use initial_data::*;
@@ -21,6 +23,7 @@ pub struct State {
     previous_project_id: u64,
     previous_work_slice_id: u64,
     projects: Vec<Project>,
+    changes: Vec<Change>,
 }
 impl State {
     /// Returns an empty State, which has no projects.
@@ -88,6 +91,7 @@ impl State {
             previous_project_id,
             previous_work_slice_id,
             projects,
+            changes: Vec::new(),
         })
     }
 
