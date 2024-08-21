@@ -46,15 +46,14 @@ impl State {
         let previous_work_slice_id = projects
             .iter()
             .map(|x| {
-                let ids = x.complete_work_slices().map(|x| x.id());
-                if let Some(id) = x.current_work_slice().map(|x| x.id()) {
-                    ids.chain([id]).max()
-                } else {
-                    ids.max()
-                }
+                x.complete_work_slices().map(|x| x.id()).chain(
+                    [x.current_work_slice()]
+                        .into_iter()
+                        .filter_map(|x| x.map(IncompleteWorkSlice::id)),
+                )
             })
             .map(|x| unsafe { x.map(|x| x.inner()) })
-            .map(|x| x.unwrap_or(0))
+            .flatten()
             .max()
             .unwrap_or(0);
 
