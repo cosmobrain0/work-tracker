@@ -79,6 +79,13 @@ pub enum DataToProjectError {
     IncompleteWorkSlice,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StateInitError {
+    ProjectLoadError(DataToProjectError),
+    DuplicateProjectId,
+    DuplicateWorkSliceId,
+}
+
 derive_debug_error! {
     CompleteWorkError
     WorkStartNowError

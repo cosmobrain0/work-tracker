@@ -6,6 +6,8 @@ mod payment;
 mod project;
 mod work_slice;
 
+use std::collections::{HashMap, HashSet};
+
 use chrono::{DateTime, Utc};
 pub use errors::*;
 pub use initial_data::*;
@@ -22,14 +24,14 @@ pub struct State {
 }
 impl State {
     /// Returns an empty State, which has no projects.
-    pub fn new(initial_data: Vec<ProjectData>) -> Result<Self, DataToProjectError> {
+    pub fn new(initial_data: Vec<ProjectData>) -> Result<Self, StateInitError> {
         let projects: Vec<_> = initial_data
             .into_iter()
             .map(ProjectData::into_project)
             .collect();
 
         if let Some(e) = projects.iter().find_map(|x| x.as_ref().err()) {
-            return Err(*e);
+            return Err(StateInitError::ProjectLoadError(*e));
         }
         let projects: Vec<_> = projects.into_iter().map(Result::unwrap).collect();
 
@@ -53,6 +55,36 @@ impl State {
             .flatten()
             .max()
             .unwrap_or(0);
+
+        let mut hashmap = HashSet::new();
+        unsafe {
+            for id in projects.iter().map(Project::id).map(|x| x.inner()) {
+                if !hashmap.insert(id) {
+                    return Err(StateInitError::DuplicateProjectId);
+                }
+            }
+            hashmap.clear();
+            for id in projects
+                .iter()
+                .map(|x| x.complete_work_slices())
+                .flatten()
+                .map(CompleteWorkSlice::id)
+                .map(|x| x.inner())
+            {
+                if !hashmap.insert(id) {
+                    return Err(StateInitError::DuplicateWorkSliceId);
+                }
+            }
+            for id in projects
+                .iter()
+                .filter_map(Project::current_work_slice)
+                .map(|x| x.id().inner())
+            {
+                if !hashmap.insert(id) {
+                    return Err(StateInitError::DuplicateWorkSliceId);
+                }
+            }
+        }
 
         Ok(Self {
             previous_project_id,
