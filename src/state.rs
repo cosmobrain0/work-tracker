@@ -280,3 +280,8 @@ impl State {
         self.projects.iter().find_map(|x| x.work_slice_from_id(id))
     }
 }
+impl State {
+    pub unsafe fn handle_changes(&mut self) -> Vec<Change> {
+        std::mem::replace(&mut self.changes, vec![])
+    }
+}
