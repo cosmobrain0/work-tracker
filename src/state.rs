@@ -22,19 +22,17 @@ pub struct State {
 }
 impl State {
     /// Returns an empty State, which has no projects.
-    pub fn new(initial_data: Vec<ProjectData>) -> Option<Self> {
+    pub fn new(initial_data: Vec<ProjectData>) -> Result<Self, DataToProjectError> {
         let projects: Vec<_> = initial_data
             .into_iter()
             .map(ProjectData::into_project)
             .collect();
 
-        // verify that all projects are valid
-        if let Some(_) = projects.iter().find_map(|x| x.as_ref().err()) {
-            return None;
+        if let Some(e) = projects.iter().find_map(|x| x.as_ref().err()) {
+            return Err(*e);
         }
         let projects: Vec<_> = projects.into_iter().map(Result::unwrap).collect();
 
-        // find the highest project id
         let previous_project_id = projects
             .iter()
             .map(Project::id)
@@ -42,7 +40,6 @@ impl State {
             .map(|x| unsafe { x.inner() })
             .unwrap_or(0);
 
-        // find the highest work slice id
         let previous_work_slice_id = projects
             .iter()
             .map(|x| {
@@ -57,7 +54,7 @@ impl State {
             .max()
             .unwrap_or(0);
 
-        Some(Self {
+        Ok(Self {
             previous_project_id,
             previous_work_slice_id,
             projects,
