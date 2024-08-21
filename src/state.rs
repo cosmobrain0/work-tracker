@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod changes;
 mod errors;
 mod initial_data;
 mod payment;
@@ -8,6 +9,7 @@ mod work_slice;
 
 use std::collections::HashSet;
 
+pub use changes::*;
 use chrono::{DateTime, Utc};
 pub use errors::*;
 pub use initial_data::*;
@@ -21,6 +23,7 @@ pub struct State {
     previous_project_id: u64,
     previous_work_slice_id: u64,
     projects: Vec<Project>,
+    changes: Vec<Change>,
 }
 impl State {
     /// Returns an empty State, which has no projects.
@@ -88,16 +91,23 @@ impl State {
             previous_project_id,
             previous_work_slice_id,
             projects,
+            changes: Vec::new(),
         })
     }
 
     /// Creates a new project, and returns its ID.
     pub fn new_project(&mut self, name: String, description: String) -> ProjectId {
+        self.changes.push(Change::ProjectCreated {
+            name: name.clone(),
+            description: description.clone(),
+            id: self.previous_project_id + 1,
+        });
         let id = ProjectId::new(self.previous_project_id + 1);
 
         self.projects.push(Project::new(name, description, id));
 
         self.previous_project_id += 1;
+
         id
     }
 
@@ -169,9 +179,21 @@ impl State {
     ) -> Result<(), WorkStartError> {
         match IncompleteWorkSlice::new(time, payment, self.new_work_slice_id()) {
             Some(work_slice) => match self.project_from_id_mut(id) {
-                Some(project) => project
-                    .start_work(work_slice)
-                    .map_err(|_| WorkStartError::AlreadyStarted),
+                Some(project) => {
+                    let work_id = work_slice.id();
+                    match project.start_work(work_slice) {
+                        Ok(()) => {
+                            self.changes.push(Change::WorkSliceStarted {
+                                project_id: unsafe { id.inner() },
+                                work_slice_id: unsafe { work_id.inner() },
+                                start_time: time,
+                                payment,
+                            });
+                            Ok(())
+                        }
+                        Err(_) => Err(WorkStartError::AlreadyStarted),
+                    }
+                }
                 None => Err(WorkStartError::InvalidProjectId),
             },
             None => Err(WorkStartError::InvalidStartTime),
@@ -182,7 +204,20 @@ impl State {
     // but can fail. See `WorkEndError` for more information on how.
     pub fn end_work(&mut self, id: ProjectId, time: DateTime<Utc>) -> Result<(), WorkEndError> {
         match self.project_from_id_mut(id) {
-            Some(project) => project.complete_work(time).map_err(Into::into),
+            Some(project) => {
+                let work_id = project.current_work_slice().map(|x| x.id());
+                match project.complete_work(time) {
+                    Ok(()) => {
+                        self.changes.push(Change::WorkSliceCompleted {
+                            project_id: unsafe { id.inner() },
+                            work_slice_id: unsafe { work_id.unwrap().inner() },
+                            end_time: time,
+                        });
+                        Ok(())
+                    }
+                    Err(x) => Err(x.into()),
+                }
+            }
             None => Err(WorkEndError::NoWorkToComplete),
         }
     }
@@ -197,6 +232,9 @@ impl State {
             .map(|(i, _)| i);
         match index {
             Some(i) => {
+                self.changes.push(Change::ProjectDeleted {
+                    id: unsafe { id.inner() },
+                });
                 self.projects.swap_remove(i);
                 true
             }
@@ -220,9 +258,19 @@ impl State {
         project_id: ProjectId,
         work_slice_id: WorkSliceId,
     ) -> bool {
-        self.project_from_id_mut(project_id)
+        match self
+            .project_from_id_mut(project_id)
             .map(|project| project.delete_work_slice(work_slice_id))
-            .is_some_and(|x| x)
+        {
+            Some(true) => {
+                self.changes.push(Change::WorkSliceDeleted {
+                    project_id: unsafe { project_id.inner() },
+                    work_slice_id: unsafe { work_slice_id.inner() },
+                });
+                true
+            }
+            None | Some(false) => false,
+        }
     }
 }
 impl State {
@@ -230,5 +278,10 @@ impl State {
     /// but fails if it has been deleted or if its project has been deleted.
     pub fn work_slice_from_id(&self, id: WorkSliceId) -> Option<WorkSlice<'_>> {
         self.projects.iter().find_map(|x| x.work_slice_from_id(id))
+    }
+}
+impl State {
+    pub unsafe fn handle_changes(&mut self) -> Vec<Change> {
+        std::mem::replace(&mut self.changes, vec![])
     }
 }
