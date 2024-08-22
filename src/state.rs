@@ -141,7 +141,7 @@ impl State {
         self.projects.iter_mut().find(|x| x.id() == id)
     }
 
-    /// Returns all projects in its ID.
+    /// Returns all projects.
     pub fn all_projects(&self) -> impl Iterator<Item = &Project> + '_ {
         self.projects.iter()
     }
