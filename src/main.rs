@@ -54,6 +54,11 @@ enum Command {
         #[arg(short, long)]
         time: Option<DateTime<Utc>>,
     },
+    DeleteWork {
+        #[arg(short, long)]
+        project: u64,
+        work_slice: u64,
+    },
 }
 
 #[derive(Subcommand)]
@@ -235,6 +240,38 @@ fn main() -> Result<(), ()> {
                         eprintln!("That project ID ({project}) is invalid!")
                     }
                 },
+            }
+        }
+        Command::DeleteWork {
+            project,
+            work_slice,
+        } => {
+            let (project_id, work_slice_id) =
+                unsafe { (ProjectId::new(project), WorkSliceId::new(project)) };
+            let data = match state.project_from_id(project_id) {
+                Some(project_data) => {
+                    if let Some(work_slice) = project_data.work_slice_from_id(work_slice_id) {
+                        match work_slice {
+                            WorkSlice::Complete(complete) => {
+                                Some(format_complete_work_slice(complete))
+                            }
+                            WorkSlice::Incomplete(incomplete) => {
+                                Some(format_incomplete_work_slice_verbose(incomplete))
+                            }
+                        }
+                    } else {
+                        eprintln!("That work slice ID ({work_slice}) either doesn't exist, or isn't a part of the project {project}. It may have been deleted.");
+                        None
+                    }
+                }
+                None => {
+                    eprintln!("That project ID ({project}) is invalid!");
+                    None
+                }
+            };
+            state.delete_work_slice_from_project(project_id, work_slice_id);
+            if let Some(data) = data {
+                println!("{data}");
             }
         }
     }
