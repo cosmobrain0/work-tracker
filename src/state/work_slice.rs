@@ -84,7 +84,7 @@ impl<'a> WorkSlice<'a> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WorkSliceId(u64);
 impl WorkSliceId {
-    pub(super) fn new(id: u64) -> Self {
+    pub unsafe fn new(id: u64) -> Self {
         Self(id)
     }
 
@@ -246,14 +246,14 @@ mod tests {
         let now = Utc::now();
         let before = now - TimeDelta::seconds(5 * 60 * 60);
         let tests = [
-            IncompleteWorkSlice::new(
-                before,
-                Payment::Hourly(Money::new(1000)),
-                WorkSliceId::new(0),
-            )
+            IncompleteWorkSlice::new(before, Payment::Hourly(Money::new(1000)), unsafe {
+                WorkSliceId::new(0)
+            })
             .unwrap(),
-            IncompleteWorkSlice::new(now, Payment::Hourly(Money::new(2000)), WorkSliceId::new(1))
-                .unwrap(),
+            IncompleteWorkSlice::new(now, Payment::Hourly(Money::new(2000)), unsafe {
+                WorkSliceId::new(1)
+            })
+            .unwrap(),
         ];
         for test in &tests {
             assert_eq!(test, test);
@@ -273,27 +273,21 @@ mod tests {
         let before = now - TimeDelta::seconds(5 * 60 * 60);
         let mut tests = vec![
             (
-                IncompleteWorkSlice::new(
-                    before,
-                    Payment::Hourly(Money::new(1000)),
-                    WorkSliceId::new(0),
-                ),
+                IncompleteWorkSlice::new(before, Payment::Hourly(Money::new(1000)), unsafe {
+                    WorkSliceId::new(0)
+                }),
                 Some(MoneyExact::new(5000.0).unwrap()),
             ),
             (
-                IncompleteWorkSlice::new(
-                    now,
-                    Payment::Hourly(Money::new(2000)),
-                    WorkSliceId::new(1),
-                ),
+                IncompleteWorkSlice::new(now, Payment::Hourly(Money::new(2000)), unsafe {
+                    WorkSliceId::new(1)
+                }),
                 Some(MoneyExact::new(0.0).unwrap()),
             ),
             (
-                IncompleteWorkSlice::new(
-                    after,
-                    Payment::Fixed(Money::new(20000)),
-                    WorkSliceId::new(2),
-                ),
+                IncompleteWorkSlice::new(after, Payment::Fixed(Money::new(20000)), unsafe {
+                    WorkSliceId::new(2)
+                }),
                 None,
             ),
         ];

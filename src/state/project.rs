@@ -11,7 +11,7 @@ use super::CompleteWorkError;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ProjectId(u64);
 impl ProjectId {
-    pub fn new(id: u64) -> Self {
+    pub unsafe fn new(id: u64) -> Self {
         Self(id)
     }
 

@@ -106,7 +106,7 @@ impl State {
             description: description.clone(),
             id: self.previous_project_id + 1,
         });
-        let id = ProjectId::new(self.previous_project_id + 1);
+        let id = unsafe { ProjectId::new(self.previous_project_id + 1) };
 
         self.projects.push(Project::new(name, description, id));
 
@@ -117,12 +117,12 @@ impl State {
 
     fn new_project_id(&mut self) -> ProjectId {
         self.previous_project_id += 1;
-        ProjectId::new(self.previous_project_id)
+        unsafe { ProjectId::new(self.previous_project_id) }
     }
 
     fn new_work_slice_id(&mut self) -> WorkSliceId {
         self.previous_work_slice_id += 1;
-        WorkSliceId::new(self.previous_work_slice_id)
+        unsafe { WorkSliceId::new(self.previous_work_slice_id) }
     }
 }
 impl State {

@@ -14,7 +14,9 @@ pub struct IncompleteWorkSliceData {
 }
 impl IncompleteWorkSliceData {
     pub(super) fn into_work_slice(self) -> Option<IncompleteWorkSlice> {
-        IncompleteWorkSlice::new(self.start, self.payment, WorkSliceId::new(self.id))
+        IncompleteWorkSlice::new(self.start, self.payment, unsafe {
+            WorkSliceId::new(self.id)
+        })
     }
 }
 
@@ -27,7 +29,9 @@ pub struct CompleteWorkSliceData {
 }
 impl CompleteWorkSliceData {
     pub(super) fn into_work_slice(self) -> Result<CompleteWorkSlice, DataToCompleteWorkSliceError> {
-        match IncompleteWorkSlice::new(self.start, self.payment, WorkSliceId::new(self.id)) {
+        match IncompleteWorkSlice::new(self.start, self.payment, unsafe {
+            WorkSliceId::new(self.id)
+        }) {
             Some(incomplete) => match CompleteWorkSlice::new(incomplete, self.end) {
                 Ok(complete) => Ok(complete),
                 Err(_) => Err(DataToCompleteWorkSliceError::EndTimeBeforeStart),
@@ -70,7 +74,7 @@ impl ProjectData {
         Ok(Project::new_with_slices(
             self.name,
             self.description,
-            ProjectId::new(self.id),
+            unsafe { ProjectId::new(self.id) },
             complete,
             current,
         ))
