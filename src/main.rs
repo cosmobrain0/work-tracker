@@ -13,7 +13,6 @@ fn main() -> Result<(), ()> {
     dotenvy::dotenv().expect("Couldn't load .env");
     let save_file_name = std::env::var("SAVE_FILE").expect("Couldn't load the SAVE_FILE variable");
     let initial_data = load_data(&save_file_name).expect("Failed to load data");
-    dbg!(&initial_data);
 
     let mut state = State::new(initial_data.clone(), move |changes, final_data| {
         save_data(&save_file_name, changes, final_data);
