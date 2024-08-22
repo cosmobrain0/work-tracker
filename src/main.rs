@@ -60,7 +60,14 @@ fn main() -> Result<(), ()> {
             println!("Created project {id}", id = unsafe { id.inner() });
         }
         Command::Delete { command } => match command {
-            DeleteCommand::Project { project_id } => todo!(),
+            DeleteCommand::Project { project_id } => {
+                if state.delete_project(unsafe { ProjectId::new(project_id) }) {
+                    println!("Deleted project {project_id}");
+                } else {
+                    eprintln!("Can't delete project {project_id} as it doesn't exist!");
+                }
+            }
+            // FIXME: this is untested because there's no way to start work rn
             DeleteCommand::Work {
                 work_slice_id,
                 project_id,
