@@ -7,7 +7,8 @@ use chrono::{DateTime, Duration, TimeDelta, Utc};
 use clap::{Parser, Subcommand};
 use state::{
     Change, CompleteWorkSlice, CompleteWorkSliceData, IncompleteWorkSlice, IncompleteWorkSliceData,
-    Money, Project, ProjectData, ProjectId, State, WorkSlice, WorkSliceId, WorkStartError,
+    Money, Project, ProjectData, ProjectId, State, WorkEndError, WorkSlice, WorkSliceId,
+    WorkStartError,
 };
 
 use crate::state::{MoneyExact, Payment};
@@ -47,6 +48,11 @@ enum Command {
         payment_fixed: bool,
         #[arg(short, long)]
         payment: u32,
+    },
+    Complete {
+        project: u64,
+        #[arg(short, long)]
+        time: Option<DateTime<Utc>>,
     },
 }
 
@@ -207,6 +213,26 @@ fn main() -> Result<(), ()> {
                     }
                     WorkStartError::InvalidStartTime => {
                         eprintln!("The start time for work can't be in the future!")
+                    }
+                },
+            }
+        }
+        Command::Complete { project, time } => {
+            let id = unsafe { ProjectId::new(project) };
+            let time = time.unwrap_or_else(Utc::now);
+            match state.end_work(id, time) {
+                Ok(()) => {
+                    println!("Successfully worked work for project {project} as complete!");
+                }
+                Err(err) => match err {
+                    WorkEndError::EndTimeTooEarly => {
+                        eprintln!("The end time of work must be after the start time!")
+                    }
+                    WorkEndError::NoWorkToComplete => {
+                        eprintln!("There is no ongoing work to mark as complete!")
+                    }
+                    WorkEndError::InvalidProjectId => {
+                        eprintln!("That project ID ({project}) is invalid!")
                     }
                 },
             }
