@@ -1,10 +1,12 @@
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 use super::{
     CompleteWorkSlice, DataToCompleteWorkSliceError, DataToProjectError, IncompleteWorkSlice,
     Payment, Project, ProjectId, WorkSliceId,
 };
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct IncompleteWorkSliceData {
     pub start: DateTime<Utc>,
     pub payment: Payment,
@@ -16,6 +18,7 @@ impl IncompleteWorkSliceData {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompleteWorkSliceData {
     pub start: DateTime<Utc>,
     pub end: DateTime<Utc>,
@@ -34,6 +37,7 @@ impl CompleteWorkSliceData {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProjectData {
     pub name: String,
     pub description: String,
