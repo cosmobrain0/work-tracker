@@ -23,13 +23,13 @@ pub struct State {
     previous_work_slice_id: u64,
     projects: Vec<Project>,
     changes: Vec<Change>,
-    commit_on_drop: Box<dyn Fn(Vec<Change>)>,
+    commit_on_drop: Box<dyn Fn(Vec<Change>, Vec<&Project>)>,
 }
 impl State {
     /// Returns an empty State, which has no projects.
     pub fn new(
         initial_data: Vec<ProjectData>,
-        commit_on_drop: impl Fn(Vec<Change>) + 'static,
+        commit_on_drop: impl Fn(Vec<Change>, Vec<&Project>) + 'static,
     ) -> Result<Self, StateInitError> {
         let projects: Vec<_> = initial_data
             .into_iter()
@@ -291,6 +291,9 @@ impl State {
 }
 impl Drop for State {
     fn drop(&mut self) {
-        (self.commit_on_drop)(std::mem::take(&mut self.changes))
+        (self.commit_on_drop)(
+            std::mem::take(&mut self.changes),
+            self.projects.iter().collect(),
+        );
     }
 }
