@@ -1,15 +1,31 @@
 mod state;
 
+use std::error::Error;
 use std::io::ErrorKind;
-use std::{error::Error, str::FromStr};
 
-use chrono::{DateTime, Utc};
-use state::{
-    Change, CompleteWorkSliceData, IncompleteWorkSliceData, Money, Payment, Project, ProjectData,
-    State,
-};
+use clap::{Parser, Subcommand};
+use state::{Change, CompleteWorkSliceData, IncompleteWorkSliceData, Project, ProjectData, State};
+
+#[derive(Parser)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Create a new project
+    Create {
+        #[arg(short, long)]
+        name: String,
+        #[arg(short, long)]
+        description: String,
+    },
+}
 
 fn main() -> Result<(), ()> {
+    let cli = Cli::parse();
+
     dotenvy::dotenv().expect("Couldn't load .env");
     let save_file_name = std::env::var("SAVE_FILE").expect("Couldn't load the SAVE_FILE variable");
     let initial_data = load_data(&save_file_name).expect("Failed to load data");
@@ -19,30 +35,12 @@ fn main() -> Result<(), ()> {
     })
     .expect("Failed to initialise State");
 
-    let project = state.new_project(
-        "Example Project".to_string(),
-        "This is an example project with a complete work slice and an incomplete one!".to_string(),
-    );
-    state
-        .start_work(
-            project,
-            Payment::Hourly(Money::new(800)),
-            DateTime::from_str("2024-08-21T08:00:00Z").unwrap(),
-        )
-        .expect("Failed to start work slice 1");
-    state
-        .end_work(project, DateTime::from_str("2024-08-21T10:00:00Z").unwrap())
-        .expect("Failed to start work slice 3");
-    state
-        .start_work(
-            project,
-            Payment::Fixed(Money::new(2000)),
-            DateTime::from_str("2024-08-21T14:30:00Z").unwrap(),
-        )
-        .expect("Failed to start work slice 2");
-    state
-        .end_work(project, Utc::now())
-        .expect("Failed to end work slice 2");
+    match cli.command {
+        Command::Create { name, description } => {
+            let id = state.new_project(name, description);
+            println!("Created project #{id}", id = unsafe { id.inner() });
+        }
+    }
 
     Ok(())
 }
