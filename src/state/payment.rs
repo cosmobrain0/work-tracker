@@ -65,11 +65,20 @@ impl Display for MoneyExact {
         let pounds = (self.0 / 100.0).floor();
         let pence = self.0 % 100.0;
         let pence = if pence >= 10.0 {
-            pence.to_string()
+            (pence / 100.0).to_string().chars().skip(2).collect()
+        } else if pence > 0.0 {
+            format!(
+                "0{pence}",
+                pence = (pence / 100.0)
+                    .to_string()
+                    .chars()
+                    .skip(2)
+                    .collect::<String>()
+            )
         } else {
-            format!("0{pence}")
+            "00".to_string()
         };
-        write!(f, "£{pounds}.{pence}")
+        write!(f, "£{pounds}.{pence:.2}")
     }
 }
 impl Sum<MoneyExact> for MoneyExact {
