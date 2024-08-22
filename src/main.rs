@@ -35,6 +35,21 @@ enum Command {
         #[command(subcommand)]
         command: ViewCommand,
     },
+    List {
+        #[command(subcommand)]
+        command: ListCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum ListCommand {
+    Projects {
+        #[arg(short, long)]
+        verbose: bool,
+    },
+    WorkSlices {
+        project: Option<u64>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -79,117 +94,204 @@ fn main() -> Result<(), ()> {
 
     match cli.command {
         Command::Create { name, description } => {
-            let id = state.new_project(name, description);
-            println!("Created project {id}", id = unsafe { id.inner() });
+            create_project(&mut state, name, description);
         }
         Command::Delete { command } => match command {
             DeleteCommand::Project { project_id } => {
-                if state.delete_project(unsafe { ProjectId::new(project_id) }) {
-                    println!("Deleted project {project_id}");
-                } else {
-                    eprintln!("Can't delete project {project_id} as it doesn't exist!");
-                }
+                delete_project(&mut state, project_id);
             }
-            // FIXME: this is untested because there's no way to start work rn
             DeleteCommand::Work {
                 work_slice_id,
                 project_id,
             } => unsafe {
-                match state.project_id_from_work_slice(WorkSliceId::new(work_slice_id)).map(|x| x.inner()) {
-                    Some(x) if x == project_id => {
-                        state.delete_work_slice_from_project(ProjectId::new(project_id), WorkSliceId::new(work_slice_id));
-                    },
-                    Some(other_project_id) => eprintln!("That work slice ID ({work_slice_id}) belongs to another project ({other_project_id})!"),
-                    None => {
-                        eprintln!("That work slice ID ({work_slice_id}) is invalid!");
-                    },
-                }
-                state.delete_work_slice_from_project(
-                    ProjectId::new(project_id),
-                    WorkSliceId::new(work_slice_id),
-                );
+                delete_work_slice(&mut state, work_slice_id, project_id);
             },
         },
         Command::View { command } => match command {
             ViewCommand::All { verbose } => {
-                if verbose {
-                    println!(
-                        "{}",
-                        state
-                            .all_projects()
-                            .map(format_project_verbose)
-                            .reduce(|acc, e| format!("{acc}\n\n{e}"))
-                            .unwrap_or_else(|| "No current projects.".to_string())
-                    );
-                } else {
-                    println!(
-                        "{}",
-                        state
-                            .all_projects()
-                            .map(format_project_not_verbose)
-                            .reduce(|acc, e| format!("{acc}\n\n{e}"))
-                            .unwrap_or_else(|| "No current projects.".to_string())
-                    );
-                }
+                view_all_projects(verbose, &state);
             }
             ViewCommand::Project {
                 project_id,
                 verbose,
-            } => match state.project_from_id(unsafe { ProjectId::new(project_id) }) {
-                Some(project) => {
-                    println!(
-                        "{}",
-                        if verbose {
-                            format_project_verbose(project)
-                        } else {
-                            format_project_not_verbose(project)
-                        }
-                    );
-                }
-                None => eprintln!("That project id ({project_id}) is invalid!"),
-            },
+            } => view_project(&state, project_id, verbose),
             ViewCommand::Work { work_slice_id } => {
-                match state.work_slice_from_id(unsafe { WorkSliceId::new(work_slice_id) }) {
-                    Some(WorkSlice::Complete(complete)) => {
-                        let project_id = state
-                            .project_id_from_work_slice(unsafe { WorkSliceId::new(work_slice_id) })
-                            .unwrap();
-                        let payment = match complete.payment() {
-                            Payment::Hourly(rate) => format!("{rate} / hour"),
-                            Payment::Fixed(payment) => format!("fixed at {payment}"),
-                        };
-                        let start = complete.start().to_rfc2822();
-                        let duration = format_duration(complete.duration());
-                        let total_payment = complete.calculate_payment().as_pence();
-                        let total_payment_pounds = (total_payment / 100.0).floor().to_string();
-                        let total_payment_pence = (total_payment % 100.0).floor().to_string();
-                        let completion = complete.completion().to_rfc2822();
+                view_work_slice(state, work_slice_id);
+            }
+        },
+        Command::List { command } => match command {
+            ListCommand::Projects { verbose } => view_all_projects(verbose, &mut state),
+            ListCommand::WorkSlices { project: None } => {
+                println!(
+                    "{}",
+                    state
+                        .all_projects()
+                        .map(|x| x.complete_work_slices())
+                        .flatten()
+                        .map(|x| view_single_complete_work_slice(&state, x))
+                        .reduce(|acc, e| format!("{acc}\n{e}"))
+                        .unwrap_or_else(|| String::from("No recorded work."))
+                );
+                println!(
+                    "{}",
+                    state
+                        .all_projects()
+                        .filter_map(|x| x.current_work_slice())
+                        .map(|x| view_single_incomplete_work_slice(&state, x))
+                        .reduce(|acc, e| format!("{acc}\n{e}"))
+                        .unwrap_or_else(|| String::from("No ongoing work."))
+                );
+            }
+            ListCommand::WorkSlices {
+                project: Some(project_id),
+            } => {
+                let project = state.project_from_id(unsafe { ProjectId::new(project_id) });
+                match project {
+                    None => eprintln!("That project ID ({project_id}) is invalid!"),
+                    Some(project) => {
                         println!(
-                            "Completed work slice {work_slice_id} for project {project_id}: Payment is {payment} - started at {start}, lasting {duration}, ending at {completion} and earning {total_payment}",
-                            project_id = unsafe { project_id.inner() },
-                            total_payment = format!("£{total_payment_pounds} and {total_payment_pence} pence"),
+                            "{}",
+                            project
+                                .complete_work_slices()
+                                .map(|x| view_single_complete_work_slice(&state, x))
+                                .reduce(|acc, e| format!("{acc}\n{e}"))
+                                .unwrap_or_else(|| String::from(
+                                    "No recorded work for project {project_id}."
+                                ))
+                        );
+                        println!(
+                            "{}",
+                            project
+                                .current_work_slice()
+                                .map(|x| view_single_incomplete_work_slice(&state, x))
+                                .unwrap_or_else(|| String::from(
+                                    "No ongoing work for project {project_id}."
+                                ))
                         );
                     }
-                    Some(WorkSlice::Incomplete(incomplete)) => {
-                        let project_id = state
-                            .project_id_from_work_slice(unsafe { WorkSliceId::new(work_slice_id) })
-                            .unwrap();
-                        let payment = incomplete.payment();
-                        let start = incomplete.start().to_rfc2822();
-                        let duration = format_duration(incomplete.duration()).to_string();
-                        let total_payment = incomplete.calculate_payment_so_far();
-                        println!(
-                            "Current work slice {work_slice_id} for project {project_id}: Payment is {payment} - started at {start}, lasting {duration} and earning {total_payment}",
-                            project_id = unsafe { project_id.inner() },
-                        );
-                    }
-                    None => eprintln!("That work slice id ({work_slice_id}) is invalid!"),
                 }
             }
         },
     }
 
     Ok(())
+}
+
+fn view_work_slice(state: State, work_slice_id: u64) {
+    match state.work_slice_from_id(unsafe { WorkSliceId::new(work_slice_id) }) {
+        Some(WorkSlice::Complete(complete)) => {
+            println!("{}", view_single_complete_work_slice(&state, complete));
+        }
+        Some(WorkSlice::Incomplete(incomplete)) => {
+            println!("{}", view_single_incomplete_work_slice(&state, incomplete));
+        }
+        None => eprintln!("That work slice id ({work_slice_id}) is invalid!"),
+    }
+}
+
+fn view_single_incomplete_work_slice(state: &State, incomplete: &IncompleteWorkSlice) -> String {
+    let project_id = state.project_id_from_work_slice(incomplete.id()).unwrap();
+    let payment = incomplete.payment();
+    let start = incomplete.start().to_rfc2822();
+    let duration = format_duration(incomplete.duration()).to_string();
+    let total_payment = incomplete.calculate_payment_so_far();
+    format!(
+        "Current work slice {work_slice_id} for project {project_id}: Payment is {payment} - started at {start}, lasting {duration} and earning {total_payment}",
+        project_id = unsafe { project_id.inner() },
+        work_slice_id = unsafe { incomplete.id().inner() },
+    )
+}
+
+fn view_single_complete_work_slice(state: &State, complete: &CompleteWorkSlice) -> String {
+    let project_id = state.project_id_from_work_slice(complete.id()).unwrap();
+    let payment = match complete.payment() {
+        Payment::Hourly(rate) => format!("{rate} / hour"),
+        Payment::Fixed(payment) => format!("fixed at {payment}"),
+    };
+    let start = complete.start().to_rfc2822();
+    let duration = format_duration(complete.duration());
+    let total_payment = complete.calculate_payment().as_pence();
+    let completion = complete.completion().to_rfc2822();
+    format!(
+        "Completed work slice {work_slice_id} for project {project_id}: Payment is {payment} - started at {start}, lasting {duration}, ending at {completion} and earning {total_payment}",
+        project_id = unsafe { project_id.inner() },
+        work_slice_id = unsafe { complete.id().inner() },
+    )
+}
+
+fn view_project(state: &State, project_id: u64, verbose: bool) {
+    match state.project_from_id(unsafe { ProjectId::new(project_id) }) {
+        Some(project) => {
+            println!(
+                "{}",
+                if verbose {
+                    format_project_verbose(project)
+                } else {
+                    format_project_not_verbose(project)
+                }
+            );
+        }
+        None => eprintln!("That project id ({project_id}) is invalid!"),
+    }
+}
+
+fn view_all_projects(verbose: bool, state: &State) {
+    if verbose {
+        println!(
+            "{}",
+            state
+                .all_projects()
+                .map(format_project_verbose)
+                .reduce(|acc, e| format!("{acc}\n\n{e}"))
+                .unwrap_or_else(|| "No current projects.".to_string())
+        );
+    } else {
+        println!(
+            "{}",
+            state
+                .all_projects()
+                .map(format_project_not_verbose)
+                .reduce(|acc, e| format!("{acc}\n\n{e}"))
+                .unwrap_or_else(|| "No current projects.".to_string())
+        );
+    }
+}
+
+unsafe fn delete_work_slice(state: &mut State, work_slice_id: u64, project_id: u64) {
+    match state
+        .project_id_from_work_slice(WorkSliceId::new(work_slice_id))
+        .map(|x| x.inner())
+    {
+        Some(x) if x == project_id => {
+            state.delete_work_slice_from_project(
+                ProjectId::new(project_id),
+                WorkSliceId::new(work_slice_id),
+            );
+        }
+        Some(other_project_id) => eprintln!(
+            "That work slice ID ({work_slice_id}) belongs to another project ({other_project_id})!"
+        ),
+        None => {
+            eprintln!("That work slice ID ({work_slice_id}) is invalid!");
+        }
+    }
+    state.delete_work_slice_from_project(
+        ProjectId::new(project_id),
+        WorkSliceId::new(work_slice_id),
+    );
+}
+
+fn delete_project(state: &mut State, project_id: u64) {
+    if state.delete_project(unsafe { ProjectId::new(project_id) }) {
+        println!("Deleted project {project_id}");
+    } else {
+        eprintln!("Can't delete project {project_id} as it doesn't exist!");
+    }
+}
+
+fn create_project(state: &mut State, name: String, description: String) {
+    let id = state.new_project(name, description);
+    println!("Created project {id}", id = unsafe { id.inner() });
 }
 
 fn load_data(file_name: &str) -> Result<Vec<ProjectData>, Box<dyn Error>> {
