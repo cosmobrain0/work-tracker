@@ -4,7 +4,10 @@ use std::error::Error;
 use std::io::ErrorKind;
 
 use clap::{Parser, Subcommand};
-use state::{Change, CompleteWorkSliceData, IncompleteWorkSliceData, Project, ProjectData, State};
+use state::{
+    Change, CompleteWorkSliceData, IncompleteWorkSliceData, Project, ProjectData, ProjectId, State,
+    WorkSliceId,
+};
 
 #[derive(Parser)]
 struct Cli {
@@ -20,6 +23,22 @@ enum Command {
         name: String,
         #[arg(short, long)]
         description: String,
+    },
+    Delete {
+        #[command(subcommand)]
+        command: DeleteCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum DeleteCommand {
+    Project {
+        project_id: u64,
+    },
+    Work {
+        work_slice_id: u64,
+        #[arg(short, long = "project")]
+        project_id: u64,
     },
 }
 
@@ -38,8 +57,29 @@ fn main() -> Result<(), ()> {
     match cli.command {
         Command::Create { name, description } => {
             let id = state.new_project(name, description);
-            println!("Created project #{id}", id = unsafe { id.inner() });
+            println!("Created project {id}", id = unsafe { id.inner() });
         }
+        Command::Delete { command } => match command {
+            DeleteCommand::Project { project_id } => todo!(),
+            DeleteCommand::Work {
+                work_slice_id,
+                project_id,
+            } => unsafe {
+                match state.project_id_from_work_slice(WorkSliceId::new(work_slice_id)).map(|x| x.inner()) {
+                    Some(x) if x == project_id => {
+                        state.delete_work_slice_from_project(ProjectId::new(project_id), WorkSliceId::new(work_slice_id));
+                    },
+                    Some(other_project_id) => eprintln!("That work slice ID ({work_slice_id}) belongs to another project ({other_project_id})!"),
+                    None => {
+                        eprintln!("That work slice ID ({work_slice_id}) is invalid!");
+                    },
+                }
+                state.delete_work_slice_from_project(
+                    ProjectId::new(project_id),
+                    WorkSliceId::new(work_slice_id),
+                );
+            },
+        },
     }
 
     Ok(())
