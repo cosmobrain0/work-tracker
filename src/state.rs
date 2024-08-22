@@ -18,16 +18,19 @@ pub use project::*;
 pub use work_slice::*;
 
 /// Used to create, modify and delete projects.
-#[derive(Debug)]
 pub struct State {
     previous_project_id: u64,
     previous_work_slice_id: u64,
     projects: Vec<Project>,
     changes: Vec<Change>,
+    commit_on_drop: Box<dyn Fn(Vec<Change>)>,
 }
 impl State {
     /// Returns an empty State, which has no projects.
-    pub fn new(initial_data: Vec<ProjectData>) -> Result<Self, StateInitError> {
+    pub fn new(
+        initial_data: Vec<ProjectData>,
+        commit_on_drop: impl Fn(Vec<Change>) + 'static,
+    ) -> Result<Self, StateInitError> {
         let projects: Vec<_> = initial_data
             .into_iter()
             .map(ProjectData::into_project)
@@ -92,6 +95,7 @@ impl State {
             previous_work_slice_id,
             projects,
             changes: Vec::new(),
+            commit_on_drop: Box::new(commit_on_drop),
         })
     }
 
@@ -283,5 +287,10 @@ impl State {
 impl State {
     pub unsafe fn handle_changes(&mut self) -> Vec<Change> {
         std::mem::replace(&mut self.changes, vec![])
+    }
+}
+impl Drop for State {
+    fn drop(&mut self) {
+        (self.commit_on_drop)(std::mem::take(&mut self.changes))
     }
 }
