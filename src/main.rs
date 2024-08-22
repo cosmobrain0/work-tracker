@@ -1,7 +1,7 @@
 mod state;
 
+use std::error::Error;
 use std::io::ErrorKind;
-use std::{error::Error, str::FromStr};
 
 use chrono::{DateTime, Duration, TimeDelta, Utc};
 use clap::{Parser, Subcommand};
@@ -58,6 +58,9 @@ enum Command {
         #[arg(short, long)]
         project: u64,
         work_slice: u64,
+    },
+    CancelCurrentWork {
+        project: u64,
     },
 }
 
@@ -274,6 +277,13 @@ fn main() -> Result<(), ()> {
                 println!("{data}");
             }
         }
+        Command::CancelCurrentWork { project } => match state.project_from_id(unsafe { ProjectId::new(project) }) {
+            Some(project_data) => match project_data.current_work_slice().map(|x| x.id()) {
+                Some(id) => { state.delete_work_slice_from_project(project_data.id(), id); },
+                None => eprintln!("Can't cancel current work for that project ({project}) because it doesn't have any ongoing work!"),
+            },
+            None => eprintln!("That project ID ({project}) is invalid!"),
+        },
     }
 
     Ok(())
