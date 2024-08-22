@@ -114,7 +114,26 @@ fn main() -> Result<(), ()> {
             } => todo!(),
             ViewCommand::Work { work_slice_id } => {
                 match state.work_slice_from_id(unsafe { WorkSliceId::new(work_slice_id) }) {
-                    Some(WorkSlice::Complete(complete)) => todo!(),
+                    Some(WorkSlice::Complete(complete)) => {
+                        let project_id = state
+                            .project_id_from_work_slice(unsafe { WorkSliceId::new(work_slice_id) })
+                            .unwrap();
+                        let payment = match complete.payment() {
+                            Payment::Hourly(rate) => format!("{rate} / hour"),
+                            Payment::Fixed(payment) => format!("fixed at {payment}"),
+                        };
+                        let start = complete.start().to_rfc2822();
+                        let duration = complete.duration().to_string();
+                        let total_payment = complete.calculate_payment().as_pence();
+                        let total_payment_pounds = (total_payment / 100.0).floor().to_string();
+                        let total_payment_pence = (total_payment % 100.0).floor().to_string();
+                        let completion = complete.completion().to_rfc2822();
+                        println!(
+                            "Completed work slice {work_slice_id} for project {project_id}: Payment is {payment} - started at {start}, lasting {duration}, ending at {completion} and earning {total_payment}",
+                            project_id = unsafe { project_id.inner() },
+                            total_payment = format!("£{total_payment_pounds} and {total_payment_pence} pence"),
+                        );
+                    }
                     Some(WorkSlice::Incomplete(incomplete)) => {
                         let project_id = state
                             .project_id_from_work_slice(unsafe { WorkSliceId::new(work_slice_id) })
