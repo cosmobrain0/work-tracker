@@ -6,8 +6,10 @@ use std::io::ErrorKind;
 use clap::{Parser, Subcommand};
 use state::{
     Change, CompleteWorkSliceData, IncompleteWorkSliceData, Project, ProjectData, ProjectId, State,
-    WorkSliceId,
+    WorkSlice, WorkSliceId,
 };
+
+use crate::state::Payment;
 
 #[derive(Parser)]
 struct Cli {
@@ -28,6 +30,10 @@ enum Command {
         #[command(subcommand)]
         command: DeleteCommand,
     },
+    View {
+        #[command(subcommand)]
+        command: ViewCommand,
+    },
 }
 
 #[derive(Subcommand)]
@@ -39,6 +45,19 @@ enum DeleteCommand {
         work_slice_id: u64,
         #[arg(short, long = "project")]
         project_id: u64,
+    },
+}
+
+#[derive(Subcommand)]
+enum ViewCommand {
+    All,
+    Project {
+        project_id: u64,
+        #[arg(short, long)]
+        verbose: bool,
+    },
+    Work {
+        work_slice_id: u64,
     },
 }
 
@@ -86,6 +105,38 @@ fn main() -> Result<(), ()> {
                     WorkSliceId::new(work_slice_id),
                 );
             },
+        },
+        Command::View { command } => match command {
+            ViewCommand::All => todo!(),
+            ViewCommand::Project {
+                project_id,
+                verbose,
+            } => todo!(),
+            ViewCommand::Work { work_slice_id } => {
+                match state.work_slice_from_id(unsafe { WorkSliceId::new(work_slice_id) }) {
+                    Some(WorkSlice::Complete(complete)) => todo!(),
+                    Some(WorkSlice::Incomplete(incomplete)) => {
+                        let project_id = state
+                            .project_id_from_work_slice(unsafe { WorkSliceId::new(work_slice_id) })
+                            .unwrap();
+                        let payment = match incomplete.payment() {
+                            Payment::Hourly(rate) => format!("{rate} / hour"),
+                            Payment::Fixed(payment) => format!("fixed at {payment}"),
+                        };
+                        let start = incomplete.start().to_rfc2822();
+                        let duration = incomplete.duration().to_string();
+                        let total_payment = incomplete.calculate_payment_so_far().as_pence();
+                        let total_payment_pounds = (total_payment / 100.0).floor().to_string();
+                        let total_payment_pence = (total_payment % 100.0).floor().to_string();
+                        println!(
+                            "Current work slice {work_slice_id} for project {project_id}: Payment is {payment} - started at {start}, lasting {duration} and earning {total_payment}",
+                            project_id = unsafe { project_id.inner() },
+                            total_payment = format!("£{total_payment_pounds} and {total_payment_pence} pence"),
+                        );
+                    }
+                    None => eprintln!("That work slice id ({work_slice_id}) is invalid!"),
+                }
+            }
         },
     }
 
