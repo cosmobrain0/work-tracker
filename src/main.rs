@@ -3,11 +3,11 @@ mod state;
 use std::io::ErrorKind;
 use std::{error::Error, str::FromStr};
 
-use chrono::{DateTime, Duration, TimeDelta};
+use chrono::{DateTime, Duration, TimeDelta, Utc};
 use clap::{Parser, Subcommand};
 use state::{
     Change, CompleteWorkSlice, CompleteWorkSliceData, IncompleteWorkSlice, IncompleteWorkSliceData,
-    Money, Project, ProjectData, ProjectId, State, WorkSlice, WorkSliceId,
+    Money, Project, ProjectData, ProjectId, State, WorkSlice, WorkSliceId, WorkStartError,
 };
 
 use crate::state::{MoneyExact, Payment};
@@ -38,6 +38,15 @@ enum Command {
     List {
         #[command(subcommand)]
         command: ListCommand,
+    },
+    Start {
+        project: u64,
+        #[arg(short, long)]
+        time: Option<DateTime<Utc>>,
+        #[arg(short, long)]
+        payment_fixed: bool,
+        #[arg(short, long)]
+        payment: u32,
     },
 }
 
@@ -172,6 +181,36 @@ fn main() -> Result<(), ()> {
                 }
             }
         },
+        Command::Start {
+            project,
+            time,
+            payment_fixed,
+            payment,
+        } => {
+            let payment = if payment_fixed {
+                Payment::Fixed(Money::new(payment))
+            } else {
+                Payment::Hourly(Money::new(payment))
+            };
+            let time = time.unwrap_or_else(Utc::now);
+            match state.start_work(unsafe { ProjectId::new(project) }, payment, time) {
+                Ok(()) => println!(
+                    "Started work for project {project} at time {time}.",
+                    time = time.to_rfc2822()
+                ),
+                Err(err) => match err {
+                    WorkStartError::AlreadyStarted => eprintln!(
+                        "Can't start work for project {project} as some work is already ongoing!"
+                    ),
+                    WorkStartError::InvalidProjectId => {
+                        eprintln!("That project ID ({project}) is invalid!")
+                    }
+                    WorkStartError::InvalidStartTime => {
+                        eprintln!("The start time for work can't be in the future!")
+                    }
+                },
+            }
+        }
     }
 
     Ok(())
