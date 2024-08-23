@@ -44,7 +44,7 @@ enum Command {
         project: u64,
         #[arg(short, long)]
         time: Option<DateTime<Utc>>,
-        #[arg(short, long)]
+        #[arg(short = 'f', long)]
         payment_fixed: bool,
         #[arg(short, long)]
         payment: u32,
@@ -230,7 +230,7 @@ fn main() -> Result<(), ()> {
             let time = time.unwrap_or_else(Utc::now);
             match state.end_work(id, time) {
                 Ok(()) => {
-                    println!("Successfully worked work for project {project} as complete!");
+                    println!("Successfully marked work for project {project} as complete!");
                 }
                 Err(err) => match err {
                     WorkEndError::EndTimeTooEarly => {
@@ -248,45 +248,51 @@ fn main() -> Result<(), ()> {
         Command::DeleteWork {
             project,
             work_slice,
-        } => {
-            let (project_id, work_slice_id) =
-                unsafe { (ProjectId::new(project), WorkSliceId::new(project)) };
-            let data = match state.project_from_id(project_id) {
-                Some(project_data) => {
-                    if let Some(work_slice) = project_data.work_slice_from_id(work_slice_id) {
-                        match work_slice {
-                            WorkSlice::Complete(complete) => {
-                                Some(format_complete_work_slice(complete))
-                            }
-                            WorkSlice::Incomplete(incomplete) => {
-                                Some(format_incomplete_work_slice_verbose(incomplete))
-                            }
-                        }
-                    } else {
-                        eprintln!("That work slice ID ({work_slice}) either doesn't exist, or isn't a part of the project {project}. It may have been deleted.");
-                        None
-                    }
-                }
-                None => {
-                    eprintln!("That project ID ({project}) is invalid!");
-                    None
-                }
-            };
-            state.delete_work_slice_from_project(project_id, work_slice_id);
-            if let Some(data) = data {
-                println!("{data}");
-            }
+        } => delete_work_slice_from_project(project, work_slice, &mut state),
+        Command::CancelCurrentWork { project } => {
+            cancel_incomplete_work_slice_for_project(state, project)
         }
-        Command::CancelCurrentWork { project } => match state.project_from_id(unsafe { ProjectId::new(project) }) {
-            Some(project_data) => match project_data.current_work_slice().map(|x| x.id()) {
-                Some(id) => { state.delete_work_slice_from_project(project_data.id(), id); },
-                None => eprintln!("Can't cancel current work for that project ({project}) because it doesn't have any ongoing work!"),
-            },
-            None => eprintln!("That project ID ({project}) is invalid!"),
-        },
     }
 
     Ok(())
+}
+
+fn cancel_incomplete_work_slice_for_project(mut state: State, project: u64) {
+    match state.project_from_id(unsafe { ProjectId::new(project) }) {
+        Some(project_data) => match project_data.current_work_slice().map(|x| x.id()) {
+            Some(id) => { state.delete_work_slice_from_project(project_data.id(), id); },
+            None => eprintln!("Can't cancel current work for that project ({project}) because it doesn't have any ongoing work!"),
+        },
+        None => eprintln!("That project ID ({project}) is invalid!"),
+    }
+}
+
+fn delete_work_slice_from_project(project: u64, work_slice: u64, state: &mut State) {
+    let (project_id, work_slice_id) =
+        unsafe { (ProjectId::new(project), WorkSliceId::new(work_slice)) };
+    let data = match state.project_from_id(project_id) {
+        Some(project_data) => {
+            if let Some(work_slice) = project_data.work_slice_from_id(work_slice_id) {
+                match work_slice {
+                    WorkSlice::Complete(complete) => Some(format_complete_work_slice(complete)),
+                    WorkSlice::Incomplete(incomplete) => {
+                        Some(format_incomplete_work_slice_verbose(incomplete))
+                    }
+                }
+            } else {
+                eprintln!("That work slice ID ({work_slice}) either doesn't exist, or isn't a part of the project {project}. It may have been deleted.");
+                None
+            }
+        }
+        None => {
+            eprintln!("That project ID ({project}) is invalid!");
+            None
+        }
+    };
+    state.delete_work_slice_from_project(project_id, work_slice_id);
+    if let Some(data) = data {
+        println!("{data}");
+    }
 }
 
 fn view_work_slice(state: State, work_slice_id: u64) {
@@ -554,7 +560,7 @@ fn format_project_verbose(project: &Project) -> String {
             payment = work.payment(),
             total_payment = work.calculate_payment_so_far()
         ),
-        None => "not owrking".to_string(),
+        None => "not working".to_string(),
     };
 
     let total_duration = format_duration(
@@ -589,17 +595,26 @@ fn format_duration(duration: Duration) -> String {
     let hours = if hours == 0 {
         None
     } else {
-        Some(format!("{hours} hours"))
+        Some(format!(
+            "{hours} hour{s}",
+            s = if hours == 1 { "" } else { "s" }
+        ))
     };
     let minutes = if minutes == 0 {
         None
     } else {
-        Some(format!("{minutes} minutes"))
+        Some(format!(
+            "{minutes} minute{s}",
+            s = if minutes == 1 { "" } else { "s" }
+        ))
     };
     let seconds = if seconds == 0 {
         None
     } else {
-        Some(format!("{seconds} seconds"))
+        Some(format!(
+            "{seconds} second{s}",
+            s = if seconds == 1 { "" } else { "s" }
+        ))
     };
     match (hours, minutes, seconds) {
         (None, None, None) => "0 seconds".to_string(),

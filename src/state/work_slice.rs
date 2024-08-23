@@ -4,6 +4,7 @@ use crate::state::payment::{MoneyExact, Payment};
 
 /// Represents a reference to a work slice
 /// which may or may not be complete
+#[derive(Debug)]
 pub enum WorkSlice<'a> {
     Complete(&'a CompleteWorkSlice),
     Incomplete(&'a IncompleteWorkSlice),
