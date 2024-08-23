@@ -28,18 +28,22 @@ enum Command {
         #[arg(short, long)]
         description: String,
     },
+    /// Delete a project or a work slice
     Delete {
         #[command(subcommand)]
         command: DeleteCommand,
     },
+    /// View your projects and work slices
     View {
         #[command(subcommand)]
         command: ViewCommand,
     },
+    /// List data about all projects or work slices
     List {
         #[command(subcommand)]
         command: ListCommand,
     },
+    /// Start a new current work slice for a certain project
     Start {
         project: u64,
         #[arg(short, long)]
@@ -49,37 +53,38 @@ enum Command {
         #[arg(short, long)]
         payment: u32,
     },
+    /// Complete the current work slice for a certain project
     Complete {
         project: u64,
         #[arg(short, long)]
         time: Option<DateTime<Utc>>,
     },
+    /// Delete a work slice from a project
     DeleteWork {
         #[arg(short, long)]
         project: u64,
         work_slice: u64,
     },
-    CancelCurrentWork {
-        project: u64,
-    },
+    /// Cancel the current work slice for a project
+    CancelCurrentWork { project: u64 },
 }
 
 #[derive(Subcommand)]
 enum ListCommand {
+    /// List data for all projects
     Projects {
         #[arg(short, long)]
         verbose: bool,
     },
-    WorkSlices {
-        project: Option<u64>,
-    },
+    /// List data for all work slices for a specific project. See also `view all --verbose` and `list projects --verbose`
+    WorkSlices { project: Option<u64> },
 }
 
 #[derive(Subcommand)]
 enum DeleteCommand {
-    Project {
-        project_id: u64,
-    },
+    /// Delete a project and all of its work slices
+    Project { project_id: u64 },
+    /// Delete a work slice from a certain project
     Work {
         work_slice_id: u64,
         #[arg(short, long = "project")]
@@ -89,18 +94,19 @@ enum DeleteCommand {
 
 #[derive(Subcommand)]
 enum ViewCommand {
+    /// View data for all projects - equivalent to `list projects`
     All {
         #[arg(short, long)]
         verbose: bool,
     },
+    /// View data for a certain project
     Project {
         project_id: u64,
         #[arg(short, long)]
         verbose: bool,
     },
-    Work {
-        work_slice_id: u64,
-    },
+    /// View data for a certain work slice
+    Work { work_slice_id: u64 },
 }
 
 fn main() -> Result<(), ()> {
