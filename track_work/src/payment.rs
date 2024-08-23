@@ -1,11 +1,13 @@
 use std::{fmt::Display, iter::Sum, ops::Add};
 
 use chrono::TimeDelta;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Represents a whole number of pence.
 /// If you want to store fractional components, see `MoneyExact`
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Money(u32);
 impl Money {
     /// Returns a new instance of `Money`
@@ -41,7 +43,8 @@ impl Display for Money {
 /// Represents some amount of money.
 /// This can be used to store fractional pence.
 /// If you want perfect precision (with no fractional components), see `Money`
-#[derive(Clone, Copy, PartialEq, PartialOrd, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct MoneyExact(f64);
 impl MoneyExact {
     /// Returns a new instance of `MoneyExact` if `money` is non-negative,
@@ -126,7 +129,8 @@ impl Add<MoneyExact> for Money {
 }
 
 /// Stores how the payment of a work slice will be calculated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Payment {
     /// Payment is a fixed amount of money per hour,
     /// with no rounding (so every second is paid for, even if it's less than one hour)

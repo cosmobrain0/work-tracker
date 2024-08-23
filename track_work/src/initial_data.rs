@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -6,7 +7,8 @@ use super::{
     Payment, Project, ProjectId, WorkSliceId,
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct IncompleteWorkSliceData {
     pub start: DateTime<Utc>,
     pub payment: Payment,
@@ -20,7 +22,8 @@ impl IncompleteWorkSliceData {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CompleteWorkSliceData {
     pub start: DateTime<Utc>,
     pub end: DateTime<Utc>,
@@ -41,7 +44,8 @@ impl CompleteWorkSliceData {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ProjectData {
     pub name: String,
     pub description: String,

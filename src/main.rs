@@ -5,13 +5,13 @@ use std::io::ErrorKind;
 
 use chrono::{DateTime, Duration, TimeDelta, Utc};
 use clap::{Parser, Subcommand};
-use state::{
+use track_work::{
     Change, CompleteWorkSlice, CompleteWorkSliceData, IncompleteWorkSlice, IncompleteWorkSliceData,
     Money, Project, ProjectData, ProjectId, State, WorkEndError, WorkSlice, WorkSliceId,
     WorkStartError,
 };
 
-use crate::state::{MoneyExact, Payment};
+use track_work::{MoneyExact, Payment};
 
 #[derive(Parser)]
 struct Cli {

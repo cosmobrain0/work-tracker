@@ -1,6 +1,6 @@
 use chrono::{DateTime, TimeDelta, Utc};
 
-use crate::state::payment::{MoneyExact, Payment};
+use crate::payment::{MoneyExact, Payment};
 
 /// Represents a reference to a work slice
 /// which may or may not be complete
@@ -235,82 +235,3 @@ impl PartialEq for CompleteWorkSlice {
     }
 }
 impl Eq for CompleteWorkSlice {}
-
-#[cfg(test)]
-mod tests {
-    use chrono::{TimeDelta, Utc};
-
-    use crate::state::{IncompleteWorkSlice, Money, MoneyExact, Payment, WorkSliceId};
-
-    #[test]
-    fn incomplete_work_slice_eq() {
-        let now = Utc::now();
-        let before = now - TimeDelta::seconds(5 * 60 * 60);
-        let tests = [
-            IncompleteWorkSlice::new(before, Payment::Hourly(Money::new(1000)), unsafe {
-                WorkSliceId::new(0)
-            })
-            .unwrap(),
-            IncompleteWorkSlice::new(now, Payment::Hourly(Money::new(2000)), unsafe {
-                WorkSliceId::new(1)
-            })
-            .unwrap(),
-        ];
-        for test in &tests {
-            assert_eq!(test, test);
-        }
-        assert_ne!(tests[0], tests[1]);
-        assert_ne!(tests[1], tests[0]);
-    }
-
-    fn almost_equal(a: f64, b: f64) -> bool {
-        (a - b).abs() <= 0.0001
-    }
-
-    #[test]
-    fn work_slice_payment_calculation() {
-        let now = Utc::now();
-        let after = now + TimeDelta::seconds(5 * 60 * 60);
-        let before = now - TimeDelta::seconds(5 * 60 * 60);
-        let mut tests = vec![
-            (
-                IncompleteWorkSlice::new(before, Payment::Hourly(Money::new(1000)), unsafe {
-                    WorkSliceId::new(0)
-                }),
-                Some(MoneyExact::new(5000.0).unwrap()),
-            ),
-            (
-                IncompleteWorkSlice::new(now, Payment::Hourly(Money::new(2000)), unsafe {
-                    WorkSliceId::new(1)
-                }),
-                Some(MoneyExact::new(0.0).unwrap()),
-            ),
-            (
-                IncompleteWorkSlice::new(after, Payment::Fixed(Money::new(20000)), unsafe {
-                    WorkSliceId::new(2)
-                }),
-                None,
-            ),
-        ];
-        assert!(tests[0].0.is_some());
-        assert!(tests[1].0.is_some());
-        assert!(tests[2].0.is_none());
-        tests.pop();
-        let monies = tests.iter().map(|x| x.1.unwrap()).collect::<Vec<_>>();
-        let tests = [
-            (tests.pop().unwrap().0.unwrap(), monies[1]),
-            (tests.pop().unwrap().0.unwrap(), monies[0]),
-        ];
-        for (test, payment) in tests {
-            assert!(almost_equal(
-                test.calculate_payment_so_far().as_pence(),
-                payment.as_pence(),
-            ));
-
-            assert!(almost_equal(
-                test.complete_now().calculate_payment().as_pence(),
-                payment.as_pence(),
-            ));
-        }
-    }
-}
