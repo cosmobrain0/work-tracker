@@ -149,14 +149,13 @@ fn main() -> Result<(), ()> {
             }
         },
         Command::List { command } => match command {
-            ListCommand::Projects { verbose } => view_all_projects(verbose, &mut state),
+            ListCommand::Projects { verbose } => view_all_projects(verbose, &state),
             ListCommand::WorkSlices { project: None } => {
                 println!(
                     "{}",
                     state
                         .all_projects()
-                        .map(|x| x.complete_work_slices())
-                        .flatten()
+                        .flat_map(|x| x.complete_work_slices())
                         .map(|x| view_single_complete_work_slice(&state, x))
                         .reduce(|acc, e| format!("{acc}\n{e}"))
                         .unwrap_or_else(|| String::from("No recorded work."))
@@ -485,14 +484,6 @@ fn format_incomplete_work_slice_verbose(work_slice: &IncompleteWorkSlice) -> Str
         duration = format_duration(work_slice.duration()),
         payment = work_slice.payment(),
         total_payment = work_slice.calculate_payment_so_far(),
-    )
-}
-
-fn format_incomplete_work_slice(work_slice: &IncompleteWorkSlice) -> String {
-    format!(
-        "{id} - started {duration} ago",
-        id = unsafe { work_slice.id().inner() },
-        duration = format_duration(work_slice.duration())
     )
 }
 

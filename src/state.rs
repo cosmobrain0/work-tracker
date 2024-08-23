@@ -17,13 +17,15 @@ pub use payment::*;
 pub use project::*;
 pub use work_slice::*;
 
+type CommitOnDropBox = Box<dyn Fn(Vec<Change>, Vec<&Project>)>;
+
 /// Used to create, modify and delete projects.
 pub struct State {
     previous_project_id: u64,
     previous_work_slice_id: u64,
     projects: Vec<Project>,
     changes: Vec<Change>,
-    commit_on_drop: Box<dyn Fn(Vec<Change>, Vec<&Project>)>,
+    commit_on_drop: CommitOnDropBox,
 }
 impl State {
     /// Returns an empty State, which has no projects.
@@ -285,8 +287,8 @@ impl State {
     }
 }
 impl State {
-    pub unsafe fn handle_changes(&mut self) -> Vec<Change> {
-        std::mem::replace(&mut self.changes, vec![])
+    pub fn handle_changes(&mut self) -> Vec<Change> {
+        std::mem::take(&mut self.changes)
     }
 }
 impl Drop for State {
