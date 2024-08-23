@@ -60,6 +60,27 @@ impl MoneyExact {
         self.0
     }
 }
+impl Display for MoneyExact {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let pounds = (self.0 / 100.0).floor();
+        let pence = self.0 % 100.0;
+        let pence = if pence >= 10.0 {
+            (pence / 100.0).to_string().chars().skip(2).collect()
+        } else if pence > 0.0 {
+            format!(
+                "0{pence}",
+                pence = (pence / 100.0)
+                    .to_string()
+                    .chars()
+                    .skip(2)
+                    .collect::<String>()
+            )
+        } else {
+            "00".to_string()
+        };
+        write!(f, "£{pounds}.{pence:.2}")
+    }
+}
 impl Sum<MoneyExact> for MoneyExact {
     fn sum<I: Iterator<Item = MoneyExact>>(iter: I) -> Self {
         MoneyExact(iter.map(|x| x.0).sum())
@@ -124,6 +145,18 @@ impl Payment {
             ),
             Payment::Fixed(money) => money.into(),
         }
+    }
+}
+impl Display for Payment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Hourly(money) => format!("{money} / hour"),
+                Self::Fixed(money) => format!("fixed at {money}"),
+            }
+        )
     }
 }
 
