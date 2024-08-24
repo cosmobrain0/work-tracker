@@ -157,9 +157,14 @@ impl Project {
     /// Returns a reference to the work slice with the given ID,
     /// if it is in this project.
     pub fn work_slice_from_id(&self, id: WorkSliceId) -> Option<WorkSlice<'_>> {
-        self.work_slices
+        match self
+            .work_slices
             .iter()
             .map(WorkSlice::Complete)
             .find(|x| x.id() == id)
+        {
+            Some(x) => Some(x),
+            None => self.current_slice.as_ref().map(WorkSlice::Incomplete),
+        }
     }
 }
